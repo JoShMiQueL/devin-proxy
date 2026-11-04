@@ -358,7 +358,7 @@ def main(argv: list[str] | None = None) -> int:
                      choices=["start", "stop", "restart", "status",
                               "list", "logs"],
                      default="status")
-    svc.add_argument("name", default=DEFAULT_NAME,
+    svc.add_argument("name", nargs="?", default=DEFAULT_NAME,
                      help="instance name (default 'default')")
     svc.add_argument("-H", "--host", default=None)
     svc.add_argument("-p", "--port", type=int, default=None,

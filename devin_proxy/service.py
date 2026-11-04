@@ -169,8 +169,10 @@ def start(name: str = DEFAULT_NAME, host: str | None = None,
 
     REG_DIR.mkdir(parents=True, exist_ok=True)
     log = open(REG_DIR / f"{name}.log", "ab")  # noqa: SIM115 — kept alive by
-    cmd = [sys.executable, "-m", "devin_proxy", "serve",  #   the child proc
-           "-H", host, "-p", str(port)]
+    # --no-autostart: the spawned process IS the service — without this
+    # its own serve-autostart would recursively spawn grandchildren.
+    cmd = [sys.executable, "-m", "devin_proxy", "serve",
+           "-H", host, "-p", str(port), "--no-autostart"]
     kw: dict = {}
     if os.name == "nt":
         # console-free + detached — survives the parent shell closing, but
@@ -184,33 +186,12 @@ def start(name: str = DEFAULT_NAME, host: str | None = None,
     proc = subprocess.Popen(cmd, stdout=log, stderr=log,
                             stdin=subprocess.DEVNULL, env=env, **kw)
 
-    # The child may autospawn its own background instance on a free port
-    # (serve's autostart). Watch the registry dir and adopt whatever it
-    # writes so the process we spawned doesn't orphan its own proxy.
     url = f"http://{host}:{port}"
     deadline = time.time() + wait
     while time.time() < deadline:
         if proc.poll() is not None:
             raise RuntimeError(
                 f"service exited rc={proc.returncode} — see {log.name}")
-        for jf in REG_DIR.glob("*.json"):
-            if jf.stem == name:
-                continue
-            d = _read(jf.stem)
-            if not (d and d.url):
-                continue
-            # adopt only fresh registrations (< wait s old) — older ones
-            # are someone else's running services, not our child.
-            if d.started_at and time.time() - d.started_at > wait:
-                continue
-            if _pid_alive(d.pid) and _probe(d.url):
-                inst = Instance(name, d.pid, d.host, d.port, d.url,
-                                version=d.version or _version(),
-                                started_at=d.started_at, alive=True)
-                inst.file.write_text(json.dumps(asdict(inst), indent=2),
-                                     encoding="utf-8")
-                jf.unlink(missing_ok=True)
-                return inst, True
         if _probe(url):
             inst = Instance(name, proc.pid, host, port, url,
                             version=_version(),
