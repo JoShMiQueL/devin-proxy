@@ -1,0 +1,21 @@
+# Git hooks — run ruff + unit tests on every commit/push.
+# Install once:  pip install lefthook && lefthook install
+#   or           uv tool install lefthook && lefthook install
+#   or           scoop/choco/brew install lefthook && lefthook install
+
+pre-commit:
+  parallel: true
+  commands:
+    lint:
+      glob: "*.py"
+      run: ruff check --fix {staged_files} && git add {staged_files}
+    tests:
+      glob: "{devin_proxy,tests}/**.py"   # only when python changes
+      run: pytest -q -m "not live" --no-header -x
+
+pre-push:
+  commands:
+    tests:
+      run: pytest -q -m "not live"
+    lint:
+      run: ruff check devin_proxy tests scripts

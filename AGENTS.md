@@ -53,12 +53,19 @@ devin_proxy/prompts/    <- shipped default override (override-compact.txt)
 
 ```
 pip install -e ".[dev]"
+lefthook install                            # once — wires git hooks
 ruff check devin_proxy tests
-pytest -q
+pytest -q                                   # all (unit + live w/ creds)
+pytest -q -m "not live"                     # unit only — CI-safe
 python -m devin_proxy [serve] [-p PORT]     # run the proxy
 python -m devin_proxy doctor                # creds + backend + override check
 scripts/run.cmd | scripts/run.sh            # dev launchers (port 8390)
 ```
+
+Pre-commit hook (lefthook.yml): ruff --fix staged + unit tests. Pre-push:
+full unit suite + lint. Live tests (`tests/test_live.py`, mark `live`)
+only run when `DEVIN_PROXY_API_KEY` or a credentials.toml exists — CI
+runs them on push when the repo secret is set.
 
 The repo `.venv` is the dev env (`-e` editable). A stable, non-editable install
 for daily use lives outside the repo (see scripts/devin.cmd) — they must not
