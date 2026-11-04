@@ -26,7 +26,6 @@ jobs:
         run: pytest -q -m "not live"
 
       - name: Tests (live, needs DEVIN_PROXY_API_KEY secret)
-        if: github.event_name == 'push'   # secrets can't be read in `if` on PRs
         env:
           DEVIN_PROXY_API_KEY: ${{ secrets.DEVIN_PROXY_API_KEY }}
         run: pytest -q tests/test_live.py -v
