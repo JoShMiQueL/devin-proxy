@@ -1,4 +1,5 @@
-"""devin-proxy CLI: serve (default), doctor, models, config, update."""
+"""devin-proxy CLI: serve (default), service lifecycle, doctor, models,
+config, update, login/logout."""
 from __future__ import annotations
 
 import argparse
@@ -6,6 +7,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 import urllib.request
 from pathlib import Path
 
@@ -14,6 +16,7 @@ from .config import load_settings
 
 REPO = "JoShMiQueL/devin-proxy"
 API = f"https://api.github.com/repos/{REPO}"
+DEFAULT_NAME = "default"
 
 
 def _gh_token() -> str | None:
@@ -45,9 +48,86 @@ def _latest_release() -> dict | None:
         return None
 
 
+def _update_notice() -> str:
+    """'update available: X.Y.Z' or '' — 400ms cap, never raises."""
+    try:
+        rel = _latest_release()
+        if not rel:
+            return ""
+        tag = str(rel.get("tag_name", "")).lstrip("v")
+        return f"update available: {tag}" if tag != __version__ else ""
+    except Exception:
+        return ""
+
+
 def cmd_serve(args) -> int:
+    """Foreground serve — but first ensure a registered background instance
+    exists so other tooling can attach. The spawned one is announced."""
+    if not getattr(args, "no_autostart", False):
+        from .service import get, start
+        if not get(DEFAULT_NAME):
+            try:
+                inst, spawned = start(DEFAULT_NAME)
+                if spawned:
+                    print(f"[devin-proxy] background service started "
+                          f"(pid {inst.pid}) at {inst.url}",
+                          file=sys.stderr)
+            except Exception as e:
+                print(f"[devin-proxy] autostart failed: {e}",
+                      file=sys.stderr)
     from .server import serve
     return serve(host=args.host, port=args.port)
+
+
+def cmd_service(args) -> int:
+    from .service import get, instances, restart, start, stop
+    act = args.svc_cmd or "status"
+    name = args.name or DEFAULT_NAME
+
+    if act == "start":
+        inst, spawned = start(name, getattr(args, "host", None),
+                              getattr(args, "port", None))
+        if spawned:
+            print(f"started {inst.name}: pid {inst.pid} at {inst.url}")
+        else:
+            print(f"{inst.name} already running at {inst.url}")
+        return 0
+    if act == "stop":
+        stopped = stop(None if args.all else name, all_=args.all)
+        if not stopped:
+            print("no running instance")
+            return 1
+        for i in stopped:
+            print(f"stopped {i.name} (pid {i.pid})")
+        return 0
+    if act == "restart":
+        inst, _ = restart(name, getattr(args, "host", None),
+                          getattr(args, "port", None))
+        print(f"restarted {inst.name}: pid {inst.pid} at {inst.url}")
+        return 0
+    if act == "logs":
+        inst = get(name, probe=False)
+        if not inst or not inst.log_file.exists():
+            print(f"no log for {name}", file=sys.stderr)
+            return 1
+        lines = inst.log_file.read_text(
+            encoding="utf-8", errors="replace").splitlines()
+        for ln in lines[-args.lines:]:
+            sys.stdout.buffer.write(
+                (ln + "\n").encode("utf-8", errors="replace"))
+        sys.stdout.buffer.flush()
+        return 0
+    # status / list
+    insts = instances()
+    if not insts:
+        print("no running instances")
+        return 1
+    print(f"{'name':<12} {'pid':>6} {'url':<24} {'version':<10} uptime")
+    for i in insts:
+        up = time.time() - i.started_at if i.started_at else 0
+        h, m = int(up // 3600), int(up % 3600 // 60)
+        print(f"{i.name:<12} {i.pid:>6} {i.url:<24} {i.version:<10} {h}h{m}m")
+    return 0
 
 
 def cmd_login(args) -> int:
@@ -251,7 +331,25 @@ def main(argv: list[str] | None = None) -> int:
     sp = sub.add_parser("serve", help="run the proxy (default)")
     sp.add_argument("-H", "--host", default=None)
     sp.add_argument("-p", "--port", type=int, default=None)
+    sp.add_argument("--no-autostart", action="store_true",
+                    help="don't auto-start the background service first")
     sp.set_defaults(fn=cmd_serve)
+
+    svc = sub.add_parser("service",
+                         help="manage background instances")
+    svc.add_argument("svc_cmd", nargs="?",
+                     choices=["start", "stop", "restart", "status",
+                              "list", "logs"],
+                     default="status")
+    svc.add_argument("name", default=DEFAULT_NAME,
+                     help="instance name (default 'default')")
+    svc.add_argument("-H", "--host", default=None)
+    svc.add_argument("-p", "--port", type=int, default=None)
+    svc.add_argument("--all", action="store_true",
+                     help="stop every running instance")
+    svc.add_argument("-n", "--lines", type=int, default=40,
+                     help="log lines to print (logs subcommand)")
+    svc.set_defaults(fn=cmd_service)
 
     sub.add_parser("doctor", help="check credentials, backend, override"
                    ).set_defaults(fn=cmd_doctor)
@@ -285,6 +383,9 @@ def main(argv: list[str] | None = None) -> int:
     fn = getattr(args, "fn", None) or cmd_serve
     if fn is cmd_serve and not hasattr(args, "host"):
         args.host = args.port = None
+    notice = _update_notice()
+    if notice:
+        print(f"[devin-proxy] {notice} — devin-proxy update", file=sys.stderr)
     return fn(args)
 
 
