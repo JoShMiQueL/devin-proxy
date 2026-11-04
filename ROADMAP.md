@@ -73,8 +73,8 @@ devin-proxy --version
 - [x] Product prompts moved inside package (`devin_proxy/prompts/override-compact.txt`, generic — no personas)
 - [x] Personal overrides kept out of repo (`~/.devin-proxy/` user data only)
 - [x] Tracked-file audit for personal strings: clean (no names/handles/paths in the 53 tracked files)
-- [ ] **Squash history**: orphan branch -> single `feat:` commit -> force-push (backup of old .git at `~/Downloads/devin-proxy-git-backup`)
-- [ ] Delete all remote tags + releases (v0.2.0/v0.2.1/v0.3.0) -> re-tag fresh
+- [x] **Squash history**: orphan branch -> single `feat:` commit -> force-push (backup of old .git at `~/Downloads/devin-proxy-git-backup`)
+- [x] Delete all remote tags + releases (v0.2.0/v0.2.1/v0.3.0) -> re-tag fresh
 - [ ] Flip repo public (Settings -> Danger Zone)
 - [ ] Dispatch `release.yml` -> first clean public release (v0.3.0)
 - [ ] Re-point agentic `DEVIN_PROXY_REPO` — still `JoShMiQueL/devin-proxy`, GH_TOKEN no longer needed once public
