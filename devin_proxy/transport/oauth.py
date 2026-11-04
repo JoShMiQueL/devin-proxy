@@ -22,6 +22,8 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from threading import Thread
 
+import httpx as _http
+
 WEBAPP = "https://app.devin.ai"
 EXCHANGE_PATH = ("/exa.seat_management_pb.SeatManagementService/"
                  "ExchangeDevinCLIPKCECode")
@@ -60,12 +62,10 @@ async def _exchange(backend: str, code: str, verifier: str) -> str:
     """
     import json
 
-    import httpx
-
     from .proto import Message
 
     body = Message().str_(1, code).str_(2, verifier).body
-    async with httpx.AsyncClient(timeout=30) as h:
+    async with _http.AsyncClient(timeout=30) as h:
         r = await h.post(
             backend.rstrip("/") + EXCHANGE_PATH, content=body,
             headers={"content-type": "application/proto",
