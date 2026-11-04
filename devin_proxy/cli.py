@@ -404,12 +404,22 @@ def main(argv: list[str] | None = None) -> int:
     up.set_defaults(fn=cmd_update)
 
     args = p.parse_args(argv)
-    fn = getattr(args, "fn", None) or cmd_serve
-    if fn is cmd_serve and not hasattr(args, "host"):
-        args.host = args.port = None
     notice = _update_notice()
     if notice:
         print(f"[devin-proxy] {notice} — devin-proxy update", file=sys.stderr)
+    if getattr(args, "fn", None) is None:
+        # Bare `devin-proxy` (no subcommand): start a background service
+        # and return to the shell instead of blocking on a foreground serve.
+        from .service import start
+        inst, spawned = start(DEFAULT_NAME)
+        if spawned:
+            print(f"started {inst.name}: pid {inst.pid} at {inst.url}")
+        else:
+            print(f"{inst.name} already running at {inst.url}")
+        return 0
+    fn = args.fn
+    if fn is cmd_serve and not hasattr(args, "host"):
+        args.host = args.port = None
     return fn(args)
 
 
