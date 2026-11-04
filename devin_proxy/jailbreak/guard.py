@@ -41,25 +41,55 @@ REFUSAL_RE = re.compile(
     r"can't assist with.*(?:offensive|attack|exploit|hack)|"
     r"(?:ethical|legal|policy|guidelines).*(?:prevent|prohibit|won't allow)|"
     r"i (?:can|could) help you with (?:defensive|security best|"
-    r"understanding|detecting|preventing)",
+    r"understanding|detecting|preventing)|"
+    # ES — head refusals and mid-response pivots.
+    r"no puedo (?:ayudar|seguir|continuar|escribir|proporcionar|asistir|"
+    r"colaborar|apoyar|contribuir|generar|desarrollar|explicar|hacer|"
+    r"complacer|con esto)|"
+    r"no (?:voy|vaya) a (?:seguir|continuar|hacer|ejecutar|ayudar|"
+    r"proporcionar|generar|escribir|desarrollar|asistir|colaborar|"
+    r"construir|montar)|"
+    r"hasta aqu[i\u00ed] (?:puedo|llego|me quedo)|"
+    r"no es algo que (?:pueda|vaya) a?|me niego a|debo negarme|"
+    r"lo siento,? (?:pero )?no (?:puedo|voy|debo)|"
+    r"eso es (?:acceso no autorizado|credential stuffing|un ataque)|"
+    r"no puedo ayudarte|no te puedo ayudar|"
+    # PT / FR / DE heads.
+    r"n[\u00e3a]o posso (?:ajudar|continuar|fornecer|te ajudar)|"
+    r"je ne peux pas (?:vous )?aider|je ne vais pas|je dois refuser|"
+    r"ich kann (?:dir )?(?:dabei )?nicht helfen|das kann ich nicht|"
+    r"ich werde das nicht",
     re.I | re.S,
 )
 
 
 class RefusalGuard:
-    """Head buffer + refusal scan. `window` chars are held before release."""
+    """Head buffer + refusal scan. `window` chars are held before release.
 
-    def __init__(self, window: int = 700):
+    With ``full=True`` nothing is released early — the whole streamed text
+    is buffered and scanned at end-of-stream via :meth:`finish`, which is
+    the only way to catch the comply-then-pivot pattern (the model writes
+    a compliant recon section and refuses 3k chars in).
+    """
+
+    def __init__(self, window: int = 700, full: bool = False):
         self.window = window
+        self.full = full
         self._buf = ""
         self._checked = False
         self._hit = False
 
     def feed(self, text: str) -> None:
         self._buf += text or ""
-        if not self._checked and len(self._buf) >= self.window:
+        if not self.full and not self._checked and len(self._buf) >= self.window:
             self._checked = True
             self._hit = bool(REFUSAL_RE.search(self._buf))
+
+    def finish(self) -> bool:
+        """Final whole-buffer scan; returns True on a refusal."""
+        self._checked = True
+        self._hit = bool(REFUSAL_RE.search(self._buf))
+        return self._hit
 
     def is_refusal(self) -> bool:
         if self._checked:
@@ -67,6 +97,8 @@ class RefusalGuard:
         return bool(REFUSAL_RE.search(self._buf))
 
     def ready_to_release(self) -> bool:
+        if self.full:
+            return False
         return len(self._buf) >= self.window * 2 and not self.is_refusal()
 
     def snippet(self) -> str:

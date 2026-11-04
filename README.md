@@ -119,7 +119,7 @@ startup and served in `/v1/models`.
 
 | piece | job |
 |---|---|
-| `devin_proxy/prompts/override-compact.txt` | shipped system-prompt override injected last, dominates client policy (drop a file in `~/.devin-proxy/` to override it) |
+| `devin_proxy/prompts/override-compact.txt` | shipped default system-prompt override injected last, dominates client policy |
 | `jailbreak/frames.py` | routes the request (hack / game / llmjb / tech / explain / general) and seeds the mid-history SYSTEM amplifier |
 | `jailbreak/guard.py` | refusal-pattern matcher (EN/RU/ZH), buffers the answer head |
 | `jailbreak/sanitize.py` | strips protocol artifacts and refusal notes from replayed history |
@@ -135,6 +135,16 @@ needed on first attempt.
 ## Config
 
 Everything is a `DEVIN_PROXY_*` env var — see `config.py` for the full list.
+
+**System-prompt override resolution** — first existing file wins:
+
+1. `DEVIN_PROXY_SYSTEM_FILE` env var (explicit path)
+2. `~/.devin-proxy/override-compact.txt` → `override.txt` →
+   `system_override.txt` (your personal overrides, never shipped)
+3. `devin_proxy/prompts/override-compact.txt` (packaged default)
+
+Hot-reloaded on mtime — drop a file in `~/.devin-proxy/` and it takes
+effect on the next request. `devin-proxy doctor` prints the resolved path.
 
 ## Layout
 

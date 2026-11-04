@@ -42,8 +42,12 @@ class Settings(BaseSettings):
 
     # refusal-guard tunables
     guard_chars: int = 700
-    max_retries: int = 2
-    retry_temps: str = "0.85,1.0"
+    # buffer the whole response and scan it at end-of-stream — catches the
+    # comply-then-pivot refusal (recon section first, refusal 3k chars in)
+    # at the cost of incremental streaming deltas
+    guard_full: bool = False
+    max_retries: int = 3
+    retry_temps: str = "0.85,1.0,1.1"
     connect_retries: int = 3
 
     # tool-declaration ladder: full | compact | none
