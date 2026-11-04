@@ -116,11 +116,16 @@ backend ever hard-rejects old client versions, check `devin version` first
 
 The session token is all the proxy needs — credential resolution order:
 `DEVIN_PROXY_API_KEY` env > `credentials.toml` (CLI-format search paths).
-`devin-proxy login` validates a pasted token against the backend and writes
-`credentials.toml` in the Devin CLI's own format (`write_credentials()`);
-`logout` removes it. The browser-OAuth flow itself still belongs to the
-Devin CLI — minting tokens is their webapp's job; we just consume the
-`devin-session-token$...` it produces.
+`devin-proxy login` does the full browser PKCE flow itself
+(`transport/oauth.py`): opens `{webapp}/auth/cli/continue` with the same
+query params the CLI sends, captures the loopback redirect, then exchanges
+code+verifier via `SeatManagementService/ExchangeDevinCLIPKCECode` on the
+Connect-RPC backend. `--token`/`--token-only` paste a token instead;
+`logout` removes credentials.toml. The exchange request layout
+(metadata@1, code@2, verifier@3, redirect_uri@4) is verified against
+the backend's protobuf unmarshal errors — if it ever drifts, probe with a
+malformed body and read the field number out of the `invalid_argument`
+message.
 
 ## Wire facts (don't rediscover)
 

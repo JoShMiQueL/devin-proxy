@@ -69,7 +69,7 @@ Point any OpenAI client at `http://127.0.0.1:8390/v1`, model `swe-2`.
 | setup | what the proxy reads |
 |---|---|
 | **Devin CLI** (easiest) | `devin auth login` → its `credentials.toml`; the proxy reads the same file and auto-tracks the CLI version |
-| **`devin-proxy login`** | paste a session token → written to `credentials.toml` in the CLI's own format (validated against the backend first) |
+| **`devin-proxy login`** | full browser OAuth (PKCE loopback → code exchange against the backend, zero CLI needed) **or** `--token` to paste one — stored in `credentials.toml`, validated against the backend first |
 | **env only** | `DEVIN_PROXY_API_KEY=devin-session-token$...` — nothing on disk, good for CI/containers |
 
 A session token comes from any logged-in Devin CLI (`credentials.toml` →

@@ -51,7 +51,7 @@ def cmd_serve(args) -> int:
 
 
 def cmd_login(args) -> int:
-    """Store a session token so the proxy works without the Devin CLI.
+    """Authenticate: browser PKCE flow (default) or paste a session token.
 
     The token is written to credentials.toml in the Devin CLI's own format —
     `devin auth status` will also see it. Alternatively keep it only in the
@@ -62,13 +62,25 @@ def cmd_login(args) -> int:
 
     from .transport.auth import Auth, default_credentials_path, write_credentials
 
+    s = load_settings()
     token = (args.token or "").strip()
-    if not token:
-        token = getpass.getpass("devin session token (devin-session-token$...): ").strip()
+    if not token and not args.token_only:
+        try:
+            from .transport.oauth import browser_login
+            token = asyncio.new_event_loop().run_until_complete(
+                browser_login(s.backend, s.client_version, s.client_channel,
+                              open_browser=not args.no_browser))
+        except (RuntimeError, TimeoutError) as e:
+            print(f"browser flow failed: {e}", file=sys.stderr)
+            print("fall back to --token (paste a session token)",
+                  file=sys.stderr)
+            return 1
+    elif not token:
+        token = getpass.getpass(
+            "devin session token (devin-session-token$...): ").strip()
     if not token:
         print("no token given", file=sys.stderr)
         return 1
-    s = load_settings()
     auth = Auth(s.backend, client_version=s.client_version,
                 client_channel=s.client_channel)
     prev = os.environ.get(Auth.ENV_KEY)
@@ -135,11 +147,12 @@ def cmd_doctor(_args) -> int:
     state = f"ok ({ov.path}, {len(text)} chars)" if text else f"none ({ov.path})"
     print(f"override    : {state}")
 
-    # backend reachability + catalog
+    # backend reachability + catalog + account
     if auth:
         try:
-            from .models.fetch import fetch_catalog
-            cat = asyncio.new_event_loop().run_until_complete(
+            from .models.fetch import fetch_catalog, fetch_user_status
+            loop = asyncio.new_event_loop()
+            cat = loop.run_until_complete(
                 fetch_catalog(s.backend, auth.api_key(), "",
                               s.client_version, s.client_channel,
                               timeout=10))
@@ -148,6 +161,14 @@ def cmd_doctor(_args) -> int:
                   else "backend     : reachable, catalog empty")
             if not cat:
                 ok = False
+            me = loop.run_until_complete(
+                fetch_user_status(s.backend, auth.api_key(), "",
+                                  s.client_version, s.client_channel,
+                                  timeout=10))
+            if me:
+                who = f"{me['name']} <{me['email']}>" if me.get("email") \
+                    else me.get("name", "?")
+                print(f"account     : {who}")
         except Exception as e:
             ok = False
             print(f"backend     : FAIL ({e})")
@@ -236,9 +257,13 @@ def main(argv: list[str] | None = None) -> int:
                    ).set_defaults(fn=cmd_doctor)
 
     lg = sub.add_parser("login",
-                        help="store a devin session token (no CLI needed)")
+                        help="browser OAuth login or paste a session token")
     lg.add_argument("--token", default=None,
-                    help="session token; prompted when omitted")
+                    help="session token; skips the browser flow")
+    lg.add_argument("--token-only", action="store_true",
+                    help="prompt for a token, never open the browser")
+    lg.add_argument("--no-browser", action="store_true",
+                    help="print the auth URL instead of opening it")
     lg.add_argument("--env-only", action="store_true",
                     help="validate only; use DEVIN_PROXY_API_KEY at runtime")
     lg.set_defaults(fn=cmd_login)
