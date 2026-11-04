@@ -39,53 +39,48 @@ def pkce_pair() -> tuple[str, str]:
     return verifier, challenge
 
 
-async def _exchange(backend: str, code: str, verifier: str, redirect_uri: str,
-                    api_key_hint: str, version: str, channel: str) -> str:
+def _token_from_response(content: bytes) -> str:
+    """session token = field-1 string in the exchange response."""
+    from .proto import fields
+    for no, wt, v in fields(content):
+        if no == 1 and wt == 2:
+            try:
+                return v.decode()
+            except UnicodeDecodeError:
+                break
+    return ""
+
+
+async def _exchange(backend: str, code: str, verifier: str) -> str:
     """code + verifier -> session token via SeatManagementService.
 
-    Layout mirrors what the CLI sends (strings + 400-on-missing-fields
-    probing): metadata at 1, authorization code at 2, verifier at 3,
-    redirect_uri at 4.
+    Wire layout verified E2E against the live backend: **bare** request —
+    authorization_code at field 1, code_verifier at field 2. No metadata
+    sub-message (unlike the chat RPCs), no redirect_uri.
     """
     import json
 
     import httpx
 
-    from ..models.catalog import metadata
     from .proto import Message
 
-    meta = Message(metadata(api_key_hint or "x", "", version, channel))
-    body = (Message()
-            .msg(1, meta)
-            .str_(2, code)
-            .str_(3, verifier)
-            .str_(4, redirect_uri)
-            .body)
+    body = Message().str_(1, code).str_(2, verifier).body
     async with httpx.AsyncClient(timeout=30) as h:
         r = await h.post(
             backend.rstrip("/") + EXCHANGE_PATH, content=body,
-            headers={"Content-Type": "application/proto",
-                     "Connect-Protocol-Version": "1"})
+            headers={"content-type": "application/proto",
+                     "connect-protocol-version": "1",
+                     "user-agent": "connect-go/1.18.1"})
     if r.status_code != 200:
         try:
             detail = json.loads(r.text).get("message", r.text)
         except Exception:
             detail = r.text
         raise RuntimeError(f"exchange failed ({r.status_code}): {detail}")
-    # response: session token as a string field — take the longest string
-    from .proto import fields
-    best = ""
-    for _no, wt, v in fields(r.content):
-        if wt == 2:
-            try:
-                s = v.decode()
-                if len(s) > len(best):
-                    best = s
-            except UnicodeDecodeError:
-                pass
-    if not best:
+    tok = _token_from_response(r.content)
+    if not tok:
         raise RuntimeError("exchange returned no session token")
-    return best
+    return tok
 
 
 class _Callback(BaseHTTPRequestHandler):
@@ -112,10 +107,11 @@ class _Callback(BaseHTTPRequestHandler):
         pass
 
 
-async def browser_login(backend: str, version: str, channel: str,
+async def browser_login(backend: str,
                         open_browser: bool = True,
                         timeout: float = TIMEOUT_S) -> str:
     """Run the full PKCE loopback flow; returns the session token."""
+    import asyncio
     import time
 
     verifier, challenge = pkce_pair()
@@ -144,7 +140,7 @@ async def browser_login(backend: str, version: str, channel: str,
         while time.time() < deadline:
             if _Callback.code or _Callback.error:
                 break
-            await __import__("asyncio").sleep(0.25)
+            await asyncio.sleep(0.25)
     finally:
         httpd.shutdown()
 
@@ -155,5 +151,4 @@ async def browser_login(backend: str, version: str, channel: str,
     if _Callback.state != state:
         raise RuntimeError("state mismatch — possible CSRF, aborting")
 
-    return await _exchange(backend, _Callback.code, verifier, redirect,
-                           "", version, channel)
+    return await _exchange(backend, _Callback.code, verifier)

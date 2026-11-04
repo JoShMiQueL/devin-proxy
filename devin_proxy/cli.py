@@ -68,7 +68,7 @@ def cmd_login(args) -> int:
         try:
             from .transport.oauth import browser_login
             token = asyncio.new_event_loop().run_until_complete(
-                browser_login(s.backend, s.client_version, s.client_channel,
+                browser_login(s.backend,
                               open_browser=not args.no_browser))
         except (RuntimeError, TimeoutError) as e:
             print(f"browser flow failed: {e}", file=sys.stderr)
