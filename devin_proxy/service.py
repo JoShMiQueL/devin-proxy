@@ -123,28 +123,49 @@ def instances() -> list[Instance]:
     return out
 
 
+def _free_port(host: str, preferred: int, span: int = 20) -> int:
+    """First connectable-free port at or after ``preferred``.
+
+    If ``preferred`` itself is free it wins; otherwise we walk up to
+    ``span`` ports looking for a closed socket. 0 lets the OS pick.
+    """
+    import socket
+    if preferred == 0:
+        with socket.socket() as s:
+            s.bind((host, 0))
+            return s.getsockname()[1]
+    for p in range(preferred, preferred + span + 1):
+        with socket.socket() as s:
+            if s.connect_ex((host, p)) != 0:
+                return p
+    raise RuntimeError(
+        f"no free port in {host}:{preferred}-{preferred + span} "
+        "— everything is taken")
+
+
 def start(name: str = DEFAULT_NAME, host: str | None = None,
           port: int | None = None, wait: float = 15.0,
-          env_extra: dict | None = None) -> tuple[Instance, bool]:
+          env_extra: dict | None = None,
+          strict_port: bool = False) -> tuple[Instance, bool]:
     """Spawn a detached ``devin_proxy serve`` and register it.
 
     Returns (instance, spawned) — spawned=False when a healthy instance
-    under that name already exists.
+    under that name already exists. ``port=None`` auto-picks the first
+    free port at or after the default; ``strict_port`` refuses to fall
+    back when the requested port is taken.
     """
     host = host or DEFAULT_HOST
-    port = port or DEFAULT_PORT
     existing = get(name)
     if existing:
         return existing, False
 
-    # port collision: another proxy (or a stale foreground serve) may hold
-    # the socket — refuse early with a clear message.
     import socket
-    with socket.socket() as s:
-        if s.connect_ex((host, port)) == 0:
-            raise RuntimeError(
-                f"{host}:{port} already has a listener — pick another "
-                f"port (-p) or stop the process holding it")
+    if port is not None and strict_port:
+        with socket.socket() as s:
+            if s.connect_ex((host, port)) == 0:
+                raise RuntimeError(
+                    f"{host}:{port} already has a listener")
+    port = _free_port(host, port or DEFAULT_PORT)
 
     REG_DIR.mkdir(parents=True, exist_ok=True)
     log = open(REG_DIR / f"{name}.log", "ab")  # noqa: SIM115 — kept alive by
@@ -163,12 +184,33 @@ def start(name: str = DEFAULT_NAME, host: str | None = None,
     proc = subprocess.Popen(cmd, stdout=log, stderr=log,
                             stdin=subprocess.DEVNULL, env=env, **kw)
 
+    # The child may autospawn its own background instance on a free port
+    # (serve's autostart). Watch the registry dir and adopt whatever it
+    # writes so the process we spawned doesn't orphan its own proxy.
     url = f"http://{host}:{port}"
     deadline = time.time() + wait
     while time.time() < deadline:
         if proc.poll() is not None:
             raise RuntimeError(
                 f"service exited rc={proc.returncode} — see {log.name}")
+        for jf in REG_DIR.glob("*.json"):
+            if jf.stem == name:
+                continue
+            d = _read(jf.stem)
+            if not (d and d.url):
+                continue
+            # adopt only fresh registrations (< wait s old) — older ones
+            # are someone else's running services, not our child.
+            if d.started_at and time.time() - d.started_at > wait:
+                continue
+            if _pid_alive(d.pid) and _probe(d.url):
+                inst = Instance(name, d.pid, d.host, d.port, d.url,
+                                version=d.version or _version(),
+                                started_at=d.started_at, alive=True)
+                inst.file.write_text(json.dumps(asdict(inst), indent=2),
+                                     encoding="utf-8")
+                jf.unlink(missing_ok=True)
+                return inst, True
         if _probe(url):
             inst = Instance(name, proc.pid, host, port, url,
                             version=_version(),

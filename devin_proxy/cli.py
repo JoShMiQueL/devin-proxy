@@ -86,9 +86,13 @@ def cmd_service(args) -> int:
 
     if act == "start":
         inst, spawned = start(name, getattr(args, "host", None),
-                              getattr(args, "port", None))
+                              getattr(args, "port", None),
+                              strict_port=args.exact)
         if spawned:
-            print(f"started {inst.name}: pid {inst.pid} at {inst.url}")
+            note = ("" if inst.port == (args.port or 8390)
+                    else f" (auto-picked; {args.port or 8390} busy)")
+            print(f"started {inst.name}: pid {inst.pid} at "
+                  f"{inst.url}{note}")
         else:
             print(f"{inst.name} already running at {inst.url}")
         return 0
@@ -357,7 +361,12 @@ def main(argv: list[str] | None = None) -> int:
     svc.add_argument("name", default=DEFAULT_NAME,
                      help="instance name (default 'default')")
     svc.add_argument("-H", "--host", default=None)
-    svc.add_argument("-p", "--port", type=int, default=None)
+    svc.add_argument("-p", "--port", type=int, default=None,
+                     help="requested port; falls back to the next free one "
+                          "unless --exact")
+    svc.add_argument("--exact", action="store_true",
+                     help="fail if the requested port is busy instead of "
+                          "auto-picking the next free one")
     svc.add_argument("--all", action="store_true",
                      help="stop every running instance")
     svc.add_argument("-n", "--lines", type=int, default=40,
