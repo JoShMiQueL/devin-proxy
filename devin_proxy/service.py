@@ -165,7 +165,7 @@ def start(name: str = DEFAULT_NAME, host: str | None = None,
             if s.connect_ex((host, port)) == 0:
                 raise RuntimeError(
                     f"{host}:{port} already has a listener")
-    port = _free_port(host, port or DEFAULT_PORT)
+    port = _free_port(host, DEFAULT_PORT if port is None else port)
 
     REG_DIR.mkdir(parents=True, exist_ok=True)
     log = open(REG_DIR / f"{name}.log", "ab")  # noqa: SIM115 — kept alive by

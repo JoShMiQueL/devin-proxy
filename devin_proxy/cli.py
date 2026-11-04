@@ -67,7 +67,9 @@ def cmd_serve(args) -> int:
         from .service import get, start
         if not get(DEFAULT_NAME):
             try:
-                inst, spawned = start(DEFAULT_NAME)
+                # port=0: let the OS pick so the background service never
+                # collides with the foreground serve on the user's port.
+                inst, spawned = start(DEFAULT_NAME, port=0)
                 if spawned:
                     print(f"[devin-proxy] background service started "
                           f"(pid {inst.pid}) at {inst.url}",
