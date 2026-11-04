@@ -75,9 +75,9 @@ devin-proxy --version
 - [x] Tracked-file audit for personal strings: clean (no names/handles/paths in the 53 tracked files)
 - [x] **Squash history**: orphan branch -> single `feat:` commit -> force-push (backup of old .git at `~/Downloads/devin-proxy-git-backup`)
 - [x] Delete all remote tags + releases (v0.2.0/v0.2.1/v0.3.0) -> re-tag fresh
-- [ ] Flip repo public (Settings -> Danger Zone)
-- [ ] Dispatch `release.yml` -> first clean public release (v0.3.0)
-- [ ] Re-point agentic `DEVIN_PROXY_REPO` — still `JoShMiQueL/devin-proxy`, GH_TOKEN no longer needed once public
+- [x] Flip repo public (Settings -> Danger Zone)
+- [x] Dispatch `release.yml` -> first clean public release (v0.4.0)
+- [x] Re-point agentic `DEVIN_PROXY_REPO` — still `JoShMiQueL/devin-proxy`, GH_TOKEN no longer needed once public
 
 ### WS1 — Package rename (blocks everything)
 
@@ -142,3 +142,4 @@ OR manual:
 - 2026-11-04: **WS3 fully autonomous** — `workflow_dispatch` on release.yml: pick `suggest|patch|minor|major` → cut job bumps/CHANGELOG/commits/tags/pushes → tag push triggers gate+release → wheel+sdist+notes published. Verified end-to-end with v0.3.0. Notes now release-please-style: linked version/compare headings, linked commit shas, `#N` → PR links, `[@user]` contributors, first-contribution detection. `RELEASE_TOKEN` secret required (GITHUB_TOKEN pushes can't retrigger workflows).
 - 2026-11-04: **AGENTS.md** committed — layout, hard rules (no real prompts/creds/personal strings), dev commands, release flow, wire facts.
 - 2026-11-04: **WS4 done** — `install.sh` + `install.ps1` (tested live: v0.3.0 -> isolated venv + PATH shim + `devin-proxy --version`). Wheel downloads via `gh release download` (iwr/curl die on release-asset redirects). README install matrix. Remaining: WS0 sanitize + public flip.
+- 2026-11-04: **WS0 done — public.** History squashed to 1 commit (`fb24e82`), all old tags+releases wiped, repo flipped public, `v0.4.0` released via dispatch (first clean public release). Agentic no longer passes `GH_TOKEN` to clone. Backup of pre-squash .git in `~/Downloads/devin-proxy-git-backup`.
