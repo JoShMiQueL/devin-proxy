@@ -1,0 +1,95 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: "bump kind, or 'suggest' to auto-pick from commits"
+        required: false
+        default: suggest
+        type: choice
+        options: [suggest, patch, minor, major]
+
+permissions:
+  contents: write
+
+jobs:
+  cut:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.bump.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN }}   # GITHUB_TOKEN pushes can't re-trigger workflows
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Bump + changelog + commit + tag + push
+        id: bump
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          KIND="${{ github.event.inputs.kind }}"
+          [ "$KIND" = "suggest" ] && KIND=$(python scripts/changelog.py suggest)
+          echo "bumping: $KIND"
+          python scripts/bump.py "$KIND" --push
+
+  gate:
+    if: github.event_name == 'push'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check devin_proxy tests
+      - name: Tests
+        run: pytest -q
+
+  release:
+    needs: gate
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history + tags for changelog.py
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Tag matches __version__ + CHANGELOG
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG=$(python -c "import re; print(re.search(r'__version__ = \"([^\"]+)\"', open('devin_proxy/__init__.py').read()).group(1))")
+          [ "$TAG" = "$PKG" ] || { echo "tag $TAG != __version__ $PKG"; exit 1; }
+          grep -q "^## \[$TAG\]" CHANGELOG.md || { echo "CHANGELOG.md has no [$TAG] section (run scripts/bump.py)"; exit 1; }
+
+      - name: Build sdist + wheel
+        run: |
+          pip install build
+          python -m build
+
+      - name: Generate release notes
+        run: python scripts/changelog.py notes "${{ github.ref_name }}" > notes.md
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete "${{ github.ref_name }}" --yes --cleanup-tag 2>/dev/null || true
+          gh release create "${{ github.ref_name }}" dist/* \
+            --title "${{ github.ref_name }}" --notes-file notes.md

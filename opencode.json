@@ -1,0 +1,17 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "devin-local": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Devin Proxy (local)",
+      "options": {
+        "baseURL": "http://127.0.0.1:8390/v1"
+      },
+      "models": {
+        "swe-2": {
+          "name": "SWE-2 (Devin)"
+        }
+      }
+    }
+  }
+}

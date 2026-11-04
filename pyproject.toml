@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "devin-proxy"
+version = "0.3.0"
+description = "Uncensored OpenAI-compatible proxy for the Devin SWE-2 backend — guard suppression + Connect-RPC transport"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.128",
+    "uvicorn[standard]>=0.40",
+    "httpx[http2]>=0.28",
+    "pydantic>=2.13",
+    "pydantic-settings>=2.12",
+    "sse-starlette>=3.3",
+    "anyio>=4.12",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9",
+    "pytest-asyncio>=1.3",
+    "ruff>=0.14",
+]
+
+[project.scripts]
+devin-proxy = "devin_proxy.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["devin_proxy"]
+artifacts = ["devin_proxy/prompts/*.txt"]
+
+[tool.hatch.build.targets.sdist]
+include = ["devin_proxy", "prompts", "tests", "scripts",
+           "CHANGELOG.md", "README.md", "AGENTS.md", "ROADMAP.md",
+           "pyproject.toml", "install.sh", "install.ps1", "LICENSE"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "ASYNC", "SIM", "RUF"]
+ignore = [
+    "RUF001", "RUF002",  # non-ASCII in regexes and docstrings (Cyrillic/CJK guard patterns)
+    "E501",              # long regex/prompt lines
+    "ASYNC109",          # timeout params on transport helpers (not timeouts in async def)
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
