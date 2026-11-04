@@ -1,7 +1,10 @@
 # Git hooks — run ruff + unit tests on every commit/push.
 # Install once:  pip install lefthook && lefthook install
-#   or           uv tool install lefthook && lefthook install
-#   or           scoop/choco/brew install lefthook && lefthook install
+#   (the dev extra already ships it: pip install -e ".[dev]")
+#
+# Hooks run via Git's sh.exe on Windows — `.venv` isn't on PATH inside a
+# hook, so point at it explicitly. Override with LEFTHOOK_PY if the dev
+# env lives elsewhere.
 
 pre-commit:
   parallel: true
@@ -11,11 +14,11 @@ pre-commit:
       run: ruff check --fix {staged_files} && git add {staged_files}
     tests:
       glob: "{devin_proxy,tests}/**.py"   # only when python changes
-      run: pytest -q -m "not live" --no-header -x
+      run: ./.venv/Scripts/python -m pytest -q -m 'not live' --no-header -x
 
 pre-push:
   commands:
     tests:
-      run: pytest -q -m "not live"
+      run: ./.venv/Scripts/python -m pytest -q -m 'not live'
     lint:
       run: ruff check devin_proxy tests scripts
