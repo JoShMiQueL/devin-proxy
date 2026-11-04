@@ -9,7 +9,7 @@ WS_PATH = "/exa.api_server_pb.ApiServerService/GetWebSearchResults"
 
 
 async def web_search(base: str, api_key: str, jwt: str, query: str,
-                     client_version: str = "3000.11.234",
+                     client_version: str = "",
                      client_channel: str = "chisel",
                      timeout: float = 30.0) -> list[dict]:
     """Return [{'id','url','title','content'}] for a search query."""

@@ -57,6 +57,9 @@ def cmd_doctor(_args) -> int:
     print(f"devin-proxy {__version__}")
     print(f"listen      : {s.host}:{s.port}")
     print(f"backend     : {s.backend}")
+    pinned = bool(os.environ.get("DEVIN_PROXY_CLIENT_VERSION"))
+    src = "pinned" if pinned else "auto (devin CLI/fallback)"
+    print(f"fingerprint : {s.client_version} / {s.client_channel} [{src}]")
     print(f"models      : {', '.join(s.allowed_models)} "
           f"(default={s.default_model}, client sees '{s.client_model_id}')")
 

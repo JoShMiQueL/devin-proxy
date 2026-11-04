@@ -101,6 +101,17 @@ tags `vX.Y.Z`, and pushes; the tag push triggers `gate` (lint+tests) and
 - `gh release create` flags go on separate lines inside `run: |` blocks —
   a trailing `\` line-continuation swallowed the flags once already.
 
+## Devin CLI drift
+
+The wire fingerprint (`client_version`/`client_channel` in the request
+metadata) **tracks the installed `devin` CLI automatically** —
+`transport/devincli.py` shells `devin version` once per `load_settings()`
+call and falls back to `FALLBACK_VERSION` when no CLI is on PATH. Pin with
+`DEVIN_PROXY_CLIENT_VERSION` env or `Settings(client_version=...)`.
+`devin-proxy doctor` shows the resolved fingerprint and its source. If the
+backend ever hard-rejects old client versions, check `devin version` first
+— the proxy is only as fresh as the installed CLI.
+
 ## Wire facts (don't rediscover)
 
 - `GetChatMessage` = `application/connect+proto` + gzip envelope; other RPCs

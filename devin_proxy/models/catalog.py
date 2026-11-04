@@ -15,8 +15,10 @@ from ..transport.proto import Message, fields
 SWE2_TIERS = ("swe-2-medium", "swe-2-high", "swe-2-max")
 
 
-def metadata(api_key: str, jwt: str = "", version: str = "3000.11.234",
+def metadata(api_key: str, jwt: str = "", version: str = "",
              channel: str = "chisel") -> bytes:
+    from ..transport.devincli import FALLBACK_VERSION
+    version = version or FALLBACK_VERSION
     m = Message()
     m.str_(1, "devin-cli").str_(7, version).str_(28, channel)
     m.str_(12, channel).str_(2, version)

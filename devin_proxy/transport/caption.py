@@ -10,7 +10,7 @@ CAPTION_PATH = "/exa.api_server_pb.ApiServerService/GetImageCaption"
 
 async def image_caption(base: str, api_key: str, jwt: str,
                         image_b64: str, mime: str = "image/png",
-                        client_version: str = "3000.11.234",
+                        client_version: str = "",
                         client_channel: str = "chisel",
                         timeout: float = 30.0) -> str:
     """Return the model's caption/description for a base64 image."""

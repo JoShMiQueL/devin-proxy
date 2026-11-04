@@ -30,11 +30,12 @@ class Auth:
     """Reads the Devin CLI key and caches the short-lived JWT (10 min)."""
 
     def __init__(self, base: str, credentials: Path | None = None,
-                 client_version: str = "3000.11.234",
+                 client_version: str = "",
                  client_channel: str = "chisel"):
         self.base = base.rstrip("/")
         self.credentials = credentials or default_credentials_path()
-        self.client_version = client_version
+        from .devincli import FALLBACK_VERSION
+        self.client_version = client_version or FALLBACK_VERSION
         self.client_channel = client_channel
         self._jwt: str | None = None
         self._jwt_ts = 0.0

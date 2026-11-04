@@ -6,6 +6,8 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from .transport.devincli import FALLBACK_CHANNEL, FALLBACK_VERSION
+
 
 def _default_cred() -> Path:
     env = os.environ.get("DEVIN_PROXY_CRED")
@@ -31,9 +33,11 @@ class Settings(BaseSettings):
     backend: str = "https://server.codeium.com"
     credentials: Path = _default_cred()
 
-    # fingerprint the backend expects; keep in step with `devin version`
-    client_version: str = "3000.11.234"
-    client_channel: str = "chisel"
+    # fingerprint the backend expects. Empty = follow the installed
+    # `devin` CLI version live (resolved in load_settings); set via
+    # DEVIN_PROXY_CLIENT_VERSION to pin.
+    client_version: str = ""
+    client_channel: str = FALLBACK_CHANNEL
 
     # refusal-guard tunables
     guard_chars: int = 700
@@ -75,4 +79,10 @@ def load_settings(**overrides) -> Settings:
         overrides.setdefault(
             "allowed_models",
             tuple(x.strip() for x in allowed.split(",") if x.strip()))
-    return Settings(**overrides)
+    s = Settings(**overrides)
+    if not s.client_version:
+        # unpinned: track the installed `devin` CLI so a CLI self-update
+        # doesn't silently drift our wire fingerprint
+        from .transport.devincli import cli_version
+        s.client_version = cli_version() or FALLBACK_VERSION
+    return s
