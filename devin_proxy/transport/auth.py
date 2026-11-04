@@ -1,6 +1,7 @@
 """Credential loading and JWT minting for the Devin gateway."""
 from __future__ import annotations
 
+import os
 import re
 import time
 from pathlib import Path
@@ -10,7 +11,6 @@ from .wire import ConnectClient
 
 
 def default_credentials_path() -> Path:
-    import os
     env = os.environ.get("DEVIN_PROXY_CRED")
     if env:
         return Path(env)
@@ -26,8 +26,34 @@ def default_credentials_path() -> Path:
     return home / ".devin" / "credentials.toml"
 
 
+def read_key(path: Path) -> str:
+    """windsurf_api_key out of a credentials.toml (Devin CLI format)."""
+    s = path.read_text(encoding="utf-8")
+    m = re.search(r'windsurf_api_key\s*=\s*"([^"]+)"', s)
+    if not m:
+        raise RuntimeError(f"no windsurf_api_key in {path}")
+    return m.group(1)
+
+
+def write_credentials(path: Path, api_key: str,
+                      api_server: str = "https://server.codeium.com") -> Path:
+    """Persist a session token in the Devin CLI's own credentials.toml
+    format so `devin auth status` and the proxy both pick it up."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        f'windsurf_api_key = "{api_key}"\n'
+        f'api_server_url = "{api_server}"\n'
+        'devin_webapp_host = "app.devin.ai"\n'
+        'devin_api_url = "https://api.devin.ai"\n',
+        encoding="utf-8")
+    return path
+
+
 class Auth:
-    """Reads the Devin CLI key and caches the short-lived JWT (10 min)."""
+    """Resolves the session token (env > credentials.toml) and caches the
+    short-lived JWT (10 min)."""
+
+    ENV_KEY = "DEVIN_PROXY_API_KEY"
 
     def __init__(self, base: str, credentials: Path | None = None,
                  client_version: str = "",
@@ -42,11 +68,10 @@ class Auth:
         self._client = ConnectClient(self.base, timeout=30)
 
     def api_key(self) -> str:
-        s = self.credentials.read_text(encoding="utf-8")
-        m = re.search(r'windsurf_api_key\s*=\s*"([^"]+)"', s)
-        if not m:
-            raise RuntimeError(f"no windsurf_api_key in {self.credentials}")
-        return m.group(1)
+        k = os.environ.get(self.ENV_KEY)
+        if k:
+            return k.strip()
+        return read_key(self.credentials)
 
     async def jwt(self) -> str:
         if self._jwt and time.time() - self._jwt_ts < 600:

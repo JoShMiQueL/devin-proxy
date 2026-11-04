@@ -33,10 +33,11 @@ class Settings(BaseSettings):
     backend: str = "https://server.codeium.com"
     credentials: Path = _default_cred()
 
-    # fingerprint the backend expects. Empty = follow the installed
-    # `devin` CLI version live (resolved in load_settings); set via
-    # DEVIN_PROXY_CLIENT_VERSION to pin.
-    client_version: str = ""
+    # fingerprint the backend expects.
+    #   "auto" (default) -> version of the installed `devin` CLI
+    #   ""               -> bundled FALLBACK_VERSION constant
+    #   "X.Y.Z"          -> pinned to that version
+    client_version: str = "auto"
     client_channel: str = FALLBACK_CHANNEL
 
     # refusal-guard tunables
@@ -80,9 +81,11 @@ def load_settings(**overrides) -> Settings:
             "allowed_models",
             tuple(x.strip() for x in allowed.split(",") if x.strip()))
     s = Settings(**overrides)
-    if not s.client_version:
-        # unpinned: track the installed `devin` CLI so a CLI self-update
-        # doesn't silently drift our wire fingerprint
+    if s.client_version == "auto":
+        # track the installed `devin` CLI so a CLI self-update doesn't
+        # silently drift our wire fingerprint; constant when no CLI exists
         from .transport.devincli import cli_version
         s.client_version = cli_version() or FALLBACK_VERSION
+    elif not s.client_version:
+        s.client_version = FALLBACK_VERSION
     return s

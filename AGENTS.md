@@ -112,6 +112,16 @@ call and falls back to `FALLBACK_VERSION` when no CLI is on PATH. Pin with
 backend ever hard-rejects old client versions, check `devin version` first
 — the proxy is only as fresh as the installed CLI.
 
+## Auth without the CLI
+
+The session token is all the proxy needs — credential resolution order:
+`DEVIN_PROXY_API_KEY` env > `credentials.toml` (CLI-format search paths).
+`devin-proxy login` validates a pasted token against the backend and writes
+`credentials.toml` in the Devin CLI's own format (`write_credentials()`);
+`logout` removes it. The browser-OAuth flow itself still belongs to the
+Devin CLI — minting tokens is their webapp's job; we just consume the
+`devin-session-token$...` it produces.
+
 ## Wire facts (don't rediscover)
 
 - `GetChatMessage` = `application/connect+proto` + gzip envelope; other RPCs

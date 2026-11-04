@@ -64,10 +64,25 @@ devin-proxy            # serves 127.0.0.1:8390 (serve -p PORT to change)
 
 Point any OpenAI client at `http://127.0.0.1:8390/v1`, model `swe-2`.
 
+## Auth — three ways, pick one
+
+| setup | what the proxy reads |
+|---|---|
+| **Devin CLI** (easiest) | `devin auth login` → its `credentials.toml`; the proxy reads the same file and auto-tracks the CLI version |
+| **`devin-proxy login`** | paste a session token → written to `credentials.toml` in the CLI's own format (validated against the backend first) |
+| **env only** | `DEVIN_PROXY_API_KEY=devin-session-token$...` — nothing on disk, good for CI/containers |
+
+A session token comes from any logged-in Devin CLI (`credentials.toml` →
+`windsurf_api_key`) or `devin auth login --force-manual-token-flow` on
+another machine. Tokens are long-lived session credentials; the proxy
+mints the 10-min JWTs itself.
+
 ## CLI
 
 ```
 devin-proxy [serve] [-p PORT] [-H HOST]   # run the proxy (default command)
+devin-proxy login [--token T] [--env-only]# store/validate a session token
+devin-proxy logout                        # remove stored credentials
 devin-proxy doctor                        # creds, override, backend, catalog
 devin-proxy models                        # upstream catalog + routed lanes
 devin-proxy config                        # effective settings

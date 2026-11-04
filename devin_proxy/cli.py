@@ -50,6 +50,59 @@ def cmd_serve(args) -> int:
     return serve(host=args.host, port=args.port)
 
 
+def cmd_login(args) -> int:
+    """Store a session token so the proxy works without the Devin CLI.
+
+    The token is written to credentials.toml in the Devin CLI's own format —
+    `devin auth status` will also see it. Alternatively keep it only in the
+    DEVIN_PROXY_API_KEY env var (Auth reads env first).
+    """
+    import asyncio
+    import getpass
+
+    from .transport.auth import Auth, default_credentials_path, write_credentials
+
+    token = (args.token or "").strip()
+    if not token:
+        token = getpass.getpass("devin session token (devin-session-token$...): ").strip()
+    if not token:
+        print("no token given", file=sys.stderr)
+        return 1
+    s = load_settings()
+    auth = Auth(s.backend, client_version=s.client_version,
+                client_channel=s.client_channel)
+    prev = os.environ.get(Auth.ENV_KEY)
+    os.environ[Auth.ENV_KEY] = token
+    try:
+        jwt = asyncio.new_event_loop().run_until_complete(auth.jwt())
+    except Exception as e:
+        print(f"token rejected by backend: {e}", file=sys.stderr)
+        return 1
+    finally:
+        if prev is None:
+            os.environ.pop(Auth.ENV_KEY, None)
+        else:
+            os.environ[Auth.ENV_KEY] = prev
+    print(f"token ok (jwt minted, {len(jwt)}B)")
+    if args.env_only:
+        print(f"set {Auth.ENV_KEY}=<token> in your environment — not stored")
+        return 0
+    path = write_credentials(default_credentials_path(), token, s.backend)
+    print(f"written: {path}")
+    return 0
+
+
+def cmd_logout(_args) -> int:
+    from .transport.auth import default_credentials_path
+    p = default_credentials_path()
+    if p.exists():
+        p.unlink()
+        print(f"removed {p}")
+    else:
+        print(f"nothing at {p}")
+    return 0
+
+
 def cmd_doctor(_args) -> int:
     import asyncio
     ok = True
@@ -181,6 +234,16 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("doctor", help="check credentials, backend, override"
                    ).set_defaults(fn=cmd_doctor)
+
+    lg = sub.add_parser("login",
+                        help="store a devin session token (no CLI needed)")
+    lg.add_argument("--token", default=None,
+                    help="session token; prompted when omitted")
+    lg.add_argument("--env-only", action="store_true",
+                    help="validate only; use DEVIN_PROXY_API_KEY at runtime")
+    lg.set_defaults(fn=cmd_login)
+    sub.add_parser("logout", help="remove stored credentials"
+                   ).set_defaults(fn=cmd_logout)
     sub.add_parser("models", help="list upstream model catalog"
                    ).set_defaults(fn=cmd_models)
     sub.add_parser("config", help="dump effective settings"
