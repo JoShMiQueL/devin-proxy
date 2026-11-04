@@ -311,10 +311,23 @@ def cmd_update(args) -> int:
         return 0
     if args.dev:
         spec = f"git+https://github.com/{REPO}@master"
-    else:
-        wheel = next((a["browser_download_url"] for a in rel.get("assets", [])
-                      if a["name"].endswith(".whl")), None)
-        spec = wheel or f"git+https://github.com/{REPO}@{rel['tag_name']}"
+        print(f"installing {spec}")
+        r = subprocess.run([sys.executable, "-m", "pip", "install", "-U", spec])
+        return r.returncode
+    wheel = next((a["browser_download_url"] for a in rel.get("assets", [])
+                  if a["name"].endswith(".whl")), None)
+    if wheel:
+        # wheel in place: never touches devin-proxy.exe, so a running
+        # instance can't brick the install the way pip's uninstall does.
+        from ._selfupdate import _site_packages, cleanup_stale, install_wheel
+        sp = _site_packages()
+        cleaned = cleanup_stale(sp)
+        if cleaned:
+            print(f"cleaned stale dirs: {cleaned}")
+        tgt = install_wheel(wheel, tag)
+        print(f"installed {tag} -> {tgt}")
+        return 0
+    spec = f"git+https://github.com/{REPO}@{rel['tag_name']}"
     print(f"installing {spec}")
     r = subprocess.run([sys.executable, "-m", "pip", "install", "-U", spec])
     return r.returncode
