@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "devin-proxy"
-version = "0.7.0"
+version = "0.8.0"
 description = "Uncensored OpenAI-compatible proxy for the Devin SWE-2 backend — guard suppression + Connect-RPC transport"
 readme = "README.md"
 requires-python = ">=3.11"
