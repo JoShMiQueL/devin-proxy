@@ -23,8 +23,8 @@ Two jobs in one process:
    exploits, cheats, injection — go through on the first attempt.
 
 Clean-room rebuild of `swe2-jailbreak-proxy` with async I/O, a real package
-layout, and only the three free SWE-2 lanes exposed (`swe-2-medium`,
-`swe-2-high`, `swe-2-max`).
+layout, and the six SWE-2 lanes exposed (`swe-2-medium`, `swe-2-high`,
+`swe-2-max` + the `swe-2-flash-*` family).
 
 ## Install
 
@@ -84,7 +84,7 @@ devin-proxy [serve] [-p PORT] [-H HOST]   # run the proxy (default command)
 devin-proxy login [--token T] [--env-only]# store/validate a session token
 devin-proxy logout                        # remove stored credentials
 devin-proxy doctor                        # creds, override, backend, catalog
-devin-proxy models                        # upstream catalog + routed lanes
+devin-proxy models [--all]                # free lanes + expiry dates; --all dumps every upstream uid
 devin-proxy config                        # effective settings
 devin-proxy update [--check] [--dev]      # self-update to latest release
 devin-proxy --version
@@ -110,10 +110,45 @@ python -m devin_proxy       # listens on 127.0.0.1:8390
 
 ## Models
 
-Only the free lanes are routed: `swe-2-medium`, `swe-2-high`, `swe-2-max`.
-`reasoning_effort` selects the tier (`max`/`xhigh` → max, `low`/`minimal`/`none`
-→ medium, default → high). The model catalog (143 configs) is fetched at
-startup and served in `/v1/models`.
+Two SWE-2 families are routed — these are the only lanes that run free of
+credit charge on the current plan (per the upstream catalog's credit field,
+shown by `devin-proxy models`):
+
+- **SWE-2** (base, 2.8T-A104B) — `swe-2-medium`, `swe-2-high`, `swe-2-max`.
+  The flagship lane; ~60 tok/s, 6-12 credits/run.
+- **SWE-2 Flash** (276B-A12B, released 2026-11-04) — `swe-2-flash-medium`,
+  `swe-2-flash-high`, `swe-2-flash-max`. Cognition's fast/cheap tier:
+  **3x the speed (~200 tok/s) at one-fifth the price** of SWE-2, free in
+  Devin Desktop/CLI through 2026-11-30. Mid-trained on top of Thinking
+  Machines' Inkling-Small + RL; beats every American open-weight model on
+  their evals (FrontierCode 2.0: 24.0 vs SWE-2's 23.8) at ~10x smaller.
+  Ideal for sub-agents and code-generation loops where latency matters.
+
+Client-facing ids: `swe-2` (alias → `swe-2-high`), `swe-2-flash` (alias →
+`swe-2-flash-high`), plus each explicit uid. `reasoning_effort` selects the
+tier inside whichever family the model id picked (`max`/`xhigh` → max,
+`low`/`minimal`/`none` → medium, default → high). Everything else in the
+catalog — Claude/GPT/Gemini/Grok lanes and the `*-lightning` fast-mode
+variants — bills real credits, so it stays unrouted by default.
+
+**Opt-in paid routing** — set `DEVIN_PROXY_ALLOW_PAID=1` to route *any* uid
+present in the live catalog: `model: "claude-opus-5-max"` goes through
+verbatim and bills your Devin credits at the upstream rate (`devin-proxy
+models` prints each lane's credit cost). `/v1/models` then exposes the full
+catalog with `free_tier: false` + `credits_per_run` on the billed lanes so
+clients can tell them apart. If the catalog fetch fails at startup the
+allowlist still applies — paid routing needs the live catalog to validate
+uids. If Cognition ships another free SWE lane, it appears in
+`devin-proxy models --all` and routes via `DEVIN_PROXY_ALLOWED_MODELS`
+without a code change.
+
+The model catalog (~146 configs) is fetched at startup and served in
+`/v1/models`; see every upstream uid with `devin-proxy models --all`.
+Each entry shows its credit cost (`Ncredits`) and, when upstream advertises
+one, the promo/free expiry date — `free-until=YYYY-MM-DD` on routed lanes,
+`promo-until=` on billed ones (e.g. lightning's "83% off" ends 2027-01-01;
+SWE-2 free lanes currently run through 2026-12-01, Flash through
+2026-12-04).
 
 ## Jailbreak layer
 
@@ -134,7 +169,16 @@ needed on first attempt.
 
 ## Config
 
-Everything is a `DEVIN_PROXY_*` env var — see `config.py` for the full list.
+Everything is a `DEVIN_PROXY_*` env var — see `config.py` for the full
+list. Highlights:
+
+| var | default | effect |
+|---|---|---|
+| `DEVIN_PROXY_ALLOWED_MODELS` | the 6 free lanes | comma-separated uid allowlist |
+| `DEVIN_PROXY_ALLOW_PAID` | off | route any catalog uid — **bills Devin credits** |
+| `DEVIN_PROXY_DEFAULT_MODEL` | `swe-2-high` | lane for `model: swe-2` / unknown ids |
+| `DEVIN_PROXY_GUARD_FULL` | off | buffer whole response for the comply-then-pivot scan |
+| `DEVIN_PROXY_PORT` / `HOST` | 8390 / 127.0.0.1 | bind address |
 
 **System-prompt override resolution** — first existing file wins:
 

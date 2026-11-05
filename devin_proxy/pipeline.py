@@ -116,12 +116,16 @@ class AttemptResult:
 
 class Engine:
     def __init__(self, settings: Settings, auth: Auth,
-                 override: OverridePrompt):
+                 override: OverridePrompt, catalog=None):
         self.settings = settings
         self.auth = auth
         self.override = override
+        self.catalog = catalog
         self.router = FrameRouter()
         self._wire = ConnectClient(settings.backend)
+
+    def _catalog_uids(self) -> set[str]:
+        return {c.uid for c in self.catalog} if self.catalog else set()
 
     async def aclose(self):
         await self._wire.aclose()
@@ -135,7 +139,14 @@ class Engine:
         raw_model = str(data.model or "")
         effort = str(data.reasoning_effort or "")
         from .models.catalog import resolve_model
-        model = resolve_model(raw_model, effort, s.allowed_models, s.default_model)
+        model = resolve_model(raw_model, effort, s.allowed_models,
+                              s.default_model)
+        # allow_paid opt-in: any uid that exists in the live catalog routes
+        # verbatim — it bills Devin credits, that's on the user.
+        req_uid = raw_model.strip().lower()
+        if (s.allow_paid and model not in s.allowed_models
+                and req_uid in self._catalog_uids()):
+            model = req_uid
 
         messages = [m.model_dump(exclude_none=True) for m in data.messages]
         messages, dropped_empty = sanitize_messages(messages)

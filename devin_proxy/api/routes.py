@@ -35,6 +35,8 @@ def build_app(settings: Settings, auth: Auth, engine: Engine,
             "models": [settings.client_model_id],
             "wire_models": list(settings.allowed_models),
             "catalog_models": len(list(cat)) if cat else 0,
+            "free_until": {c.uid: c.expiry_iso for c in cat
+                           if c.expires_at} if cat else {},
         }
 
     @app.get("/v1/models")
@@ -42,6 +44,25 @@ def build_app(settings: Settings, auth: Auth, engine: Engine,
     async def models():
         data = []
         cat = getattr(app.state, "catalog", None)
+        if settings.allow_paid and cat:
+            # paid opt-in: expose the whole upstream catalog, billed lanes
+            # marked so clients can tell them apart from the free tiers
+            allowed = set(settings.allowed_models)
+            for cfg in sorted(cat, key=lambda c: c.uid):
+                data.append({
+                    "id": cfg.uid,
+                    "object": "model",
+                    "created": int(time.time()),
+                    "name": cfg.name or cfg.uid,
+                    "owned_by": "devin",
+                    "context_window": cfg.context or 262144,
+                    "max_tokens": 16384,
+                    "credits_per_run": cfg.credits or None,
+                    "free_tier": cfg.uid in allowed,
+                    "free_until": cfg.expiry_iso or None,
+                    "aliases": cfg.aliases or None,
+                })
+            return {"object": "list", "data": data}
         for uid in settings.allowed_models:
             cfg = cat.get(uid) if cat else None
             entry = {
@@ -86,6 +107,32 @@ def build_app(settings: Settings, auth: Auth, engine: Engine,
                                             "high", "xhigh", "max"],
             "wire_model": settings.default_model,
         })
+        # flash alias: point the code-generation agent at the fast family
+        # with one stable id
+        flash_cfg = cat.get("swe-2-flash-high") if cat else None
+        if flash_cfg or "swe-2-flash-high" in settings.allowed_models:
+            data.insert(1, {
+                "id": "swe-2-flash",
+                "object": "model",
+                "created": int(time.time()),
+                "name": "SWE-2 Flash",
+                "owned_by": "devin",
+                "context_window": (flash_cfg.context
+                                   if flash_cfg and flash_cfg.context
+                                   else 262144),
+                "max_tokens": 16384,
+                "reasoning": {
+                    "supported_efforts": ["none", "minimal", "low", "medium",
+                                          "high", "xhigh", "max"],
+                    "default_effort": "high",
+                    "default_enabled": True,
+                    "mandatory": False,
+                },
+                "supported_reasoning_efforts": ["none", "minimal", "low",
+                                                "medium", "high", "xhigh",
+                                                "max"],
+                "wire_model": "swe-2-flash-high",
+            })
         return {"object": "list", "data": data}
 
     @app.post("/v1/image_caption")

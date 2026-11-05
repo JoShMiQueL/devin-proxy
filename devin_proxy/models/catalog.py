@@ -1,8 +1,9 @@
 """Model catalog + the client-facing model-id resolution.
 
-Only the three free SWE-2 lanes are exposed upstream; the catalog still
-parses the full GetCliModelConfigs dump so we can advertize context sizes and
-validate that a requested uid is real.
+The base, Flash, and Lightning SWE-2 lanes are all routable; which ones are
+exposed is governed by settings.allowed_models. The catalog still parses the
+full GetCliModelConfigs dump so we can advertize context sizes and validate
+that a requested uid is real.
 """
 from __future__ import annotations
 
@@ -11,8 +12,14 @@ from dataclasses import dataclass, field
 
 from ..transport.proto import Message, fields
 
-#: wire uid -> (effort tier, paid?). We only ever route to the free ones.
+#: wire uids for the base SWE-2 lanes
 SWE2_TIERS = ("swe-2-medium", "swe-2-high", "swe-2-max")
+#: SWE-2 Flash lanes — the fast strawberry-pancake family.
+SWE2_FLASH_TIERS = ("swe-2-flash-medium", "swe-2-flash-high", "swe-2-flash-max")
+
+#: every lane we know how to route, in stable order.
+# Lightning lanes are intentionally excluded: they bill fast-mode credits.
+ALL_TIERS = SWE2_TIERS + SWE2_FLASH_TIERS
 
 
 def metadata(api_key: str, jwt: str = "", version: str = "",
@@ -34,8 +41,17 @@ class ModelConfig:
     uid: str
     name: str = ""
     context: int = 0
+    credits: float = 0.0           # field 3: relative credit cost per run
+    expires_at: int = 0            # field 19.2.1: promo/free window end (epoch)
+    promo: str = ""                # field 19.3: promo label e.g. "83% off"
     aliases: list[str] = field(default_factory=list)
-    deprecated: bool = False
+
+    @property
+    def expiry_iso(self) -> str:
+        import datetime
+        return (datetime.datetime.fromtimestamp(
+            self.expires_at, datetime.UTC).strftime("%Y-%m-%d")
+                if self.expires_at else "")
 
 
 class ModelCatalog:
@@ -55,8 +71,21 @@ class ModelCatalog:
         for no, wt, v in fields(b):
             if no == 1 and wt == 2:
                 c.name = v.decode("utf-8", "replace")
+            elif no == 3 and wt == 5:
+                import struct
+                c.credits = struct.unpack("<f", v)[0]
             elif no == 18 and wt == 0:
                 c.context = v
+            elif no == 19 and wt == 2:
+                # availability/promo block: 19.2.1 = promo end epoch,
+                # 19.3 = promo label ("83% off")
+                for p_no, p_wt, p_v in fields(v):
+                    if p_no == 2 and p_wt == 2:
+                        for w_no, w_wt, w_v in fields(p_v):
+                            if w_no == 1 and w_wt == 0:
+                                c.expires_at = w_v
+                    elif p_no == 3 and p_wt == 2:
+                        c.promo = p_v.decode("utf-8", "replace")
             elif no == 22 and wt == 2:
                 c.uid = v.decode("utf-8", "replace")
             elif no == 23 and wt == 2:
@@ -64,8 +93,6 @@ class ModelCatalog:
                 for i_no, i_wt, i_v in fields(v):
                     if i_no == 27 and i_wt == 2:
                         c.aliases.append(i_v.decode("utf-8", "replace"))
-            elif no == 24 and wt == 0:
-                c.deprecated = bool(v)
         return c
 
     def __iter__(self):
@@ -76,25 +103,31 @@ class ModelCatalog:
 
 
 def resolve_model(model: str, effort: str = "",
-                  allowed: tuple[str, ...] = SWE2_TIERS,
+                  allowed: tuple[str, ...] = ALL_TIERS,
                   default: str = "swe-2-high") -> str:
-    """Map an OpenAI model id + reasoning_effort to a *free* SWE-2 wire uid.
+    """Map an OpenAI model id + reasoning_effort to a wire uid.
 
-    Anything outside `allowed` falls back to `default`; effort only ever
-    chooses among the three SWE-2 lanes.
+    Anything outside `allowed` falls back to `default`. A bare "flash" /
+    "swe-2-flash" id lands on the flash-high lane. Effort picks a tier
+    inside whatever family the model id selected (default: the base
+    family).
     """
     m = (model or "").strip().lower()
     e = (effort or "").strip().lower()
 
-    if e in ("max", "xhigh"):
-        tier = "swe-2-max"
-    elif e in ("medium", "low", "minimal", "none", "off"):
-        tier = "swe-2-medium"
-    else:
-        tier = default
-
-    # an explicit swe-2-<tier> wins over effort
-    for cand in SWE2_TIERS:
-        if (m == cand or m == cand.replace("swe-2-", "swe2-")) and cand in allowed:
+    # explicit lane always wins
+    for cand in allowed:
+        if m == cand or m == cand.replace("swe-2-", "swe2-"):
             return cand
-    return tier if tier in allowed else default
+
+    tiers = SWE2_FLASH_TIERS if "flash" in m else SWE2_TIERS
+
+    if e in ("max", "xhigh"):
+        tier = tiers[2]
+    elif e in ("medium", "low", "minimal", "none", "off"):
+        tier = tiers[0]
+    else:
+        tier = (default if default in tiers else tiers[1])
+
+    return tier if tier in allowed else (
+        default if default in allowed else allowed[0] if allowed else tier)

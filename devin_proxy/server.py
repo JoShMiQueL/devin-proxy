@@ -24,7 +24,6 @@ def serve(host: str | None = None, port: int | None = None) -> int:
     auth = Auth(settings.backend, settings.credentials,
                 settings.client_version, settings.client_channel)
     override = OverridePrompt(settings.system_file)
-    engine = Engine(settings, auth, override)
 
     catalog = None
     try:
@@ -37,12 +36,15 @@ def serve(host: str | None = None, port: int | None = None) -> int:
     except Exception as e:
         log = logging.getLogger("devin-proxy")
         log.warning("catalog prefetch skipped: %s", e)
+    engine = Engine(settings, auth, override, catalog)
     app = build_app(settings, auth, engine, override, catalog)
 
     log = logging.getLogger("devin-proxy")
-    log.info("listening on %s:%d -> %s (allowed=%s) override=%dc",
+    log.info("listening on %s:%d -> %s (allowed=%s%s) override=%dc",
              settings.host, settings.port, settings.backend,
-             ",".join(settings.allowed_models), len(override.load()))
+             ",".join(settings.allowed_models),
+             "+paid" if settings.allow_paid else "",
+             len(override.load()))
     try:
         auth.api_key()
         log.info("devin credentials ok (%s)", auth.credentials)

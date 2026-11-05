@@ -211,8 +211,10 @@ def cmd_doctor(_args) -> int:
     pinned = bool(os.environ.get("DEVIN_PROXY_CLIENT_VERSION"))
     src = "pinned" if pinned else "auto (devin CLI/fallback)"
     print(f"fingerprint : {s.client_version} / {s.client_channel} [{src}]")
+    paid = " + allow_paid (catalog uids bill credits)" if s.allow_paid else ""
     print(f"models      : {', '.join(s.allowed_models)} "
-          f"(default={s.default_model}, client sees '{s.client_model_id}')")
+          f"(default={s.default_model}, client sees '{s.client_model_id}')"
+          f"{paid}")
 
     # credentials
     try:
@@ -263,7 +265,7 @@ def cmd_doctor(_args) -> int:
     return 0 if ok else 1
 
 
-def cmd_models(_args) -> int:
+def cmd_models(args) -> int:
     import asyncio
     s = load_settings()
     from .models.fetch import fetch_catalog
@@ -275,17 +277,45 @@ def cmd_models(_args) -> int:
     if not cat:
         print("catalog unavailable", file=sys.stderr)
         return 1
-    print(f"client-facing model: {s.client_model_id} ({s.client_model_name})")
-    print("allowed wire lanes:")
+
+    def _line(uid, cfg, mark=""):
+        ctx = f"{cfg.context // 1024}k" if cfg and cfg.context else "?"
+        name = cfg.name if cfg else uid
+        cost = (f"{cfg.credits:g}cr" if cfg and cfg.credits else "?")
+        free = cfg.uid in s.allowed_models if cfg else False
+        tag = "FREE" if free else f"{cost}"
+        note = ""
+        if cfg and cfg.expires_at:
+            label = "free-until" if free else "promo-until"
+            note = f" {label}={cfg.expiry_iso}"
+        elif cfg and cfg.promo:
+            note = f" promo={cfg.promo}"
+        return (f"  {mark}{uid:<24} {name:<28} ctx={ctx:<6} {tag:<8}"
+                f"{note} aliases={','.join(cfg.aliases) if cfg else ''}"
+                ).rstrip()
+
+    print(f"client-facing model: {s.client_model_id} ({s.client_model_name}) "
+          f"-> {s.default_model}")
+    if s.allow_paid:
+        print("allow_paid=ON — every catalog uid routes; FREE marks the "
+              "no-credit lanes, the rest bills Devin credits")
+    else:
+        print("free lanes (routed, no credit charge):")
     for uid in s.allowed_models:
-        cfg = cat.get(uid)
-        if cfg:
-            ctx = f"{cfg.context // 1024}k" if cfg.context else "?"
-            print(f"  {uid:<16} name={cfg.name or '?':<12} ctx={ctx}")
-        else:
-            print(f"  {uid:<16} (not in upstream catalog)")
+        print(_line(uid, cat.get(uid), "*"))
+    print("  (also: 'swe-2-flash' -> swe-2-flash-high; "
+          "'swe-2-flash' + reasoning_effort picks the tier)")
     n = len(list(cat))
-    print(f"upstream catalog: {n} configs total")
+    if getattr(args, "all", False):
+        print(f"\nupstream catalog ({n} configs):")
+        allowed = set(s.allowed_models)
+        for cfg in sorted(cat, key=lambda c: c.uid):
+            mark = "*" if cfg.uid in allowed else " "
+            print(_line(cfg.uid, cfg, mark))
+        print("\n  * = routed through this proxy")
+    else:
+        print(f"upstream catalog: {n} configs total "
+              f"(run with --all to list every uid)")
     return 0
 
 
@@ -391,8 +421,10 @@ def main(argv: list[str] | None = None) -> int:
     lg.set_defaults(fn=cmd_login)
     sub.add_parser("logout", help="remove stored credentials"
                    ).set_defaults(fn=cmd_logout)
-    sub.add_parser("models", help="list upstream model catalog"
-                   ).set_defaults(fn=cmd_models)
+    mp = sub.add_parser("models", help="list routed models + upstream catalog")
+    mp.add_argument("--all", action="store_true",
+                    help="dump the full upstream catalog, not just the lanes")
+    mp.set_defaults(fn=cmd_models)
     sub.add_parser("config", help="dump effective settings"
                    ).set_defaults(fn=cmd_config)
 

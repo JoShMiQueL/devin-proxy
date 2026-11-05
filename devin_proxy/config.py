@@ -61,12 +61,21 @@ class Settings(BaseSettings):
     img_max_bytes: int = 12 * 1024 * 1024
     keep_client_system: bool = False
 
-    # model allowlist: only the free SWE-2 lanes
+    # model allowlist: base SWE-2 lanes + the Flash family — the lanes that
+    # run free of credit charge on Pro+ plans. Every other catalog uid
+    # (Claude/GPT/Gemini/Grok/Kimi/GLM/... and the swe-2 *-lightning
+    # fast-mode variants) bills Devin credits when routed.
     allowed_models: tuple[str, ...] = (
         "swe-2-medium",
         "swe-2-high",
         "swe-2-max",
+        "swe-2-flash-medium",
+        "swe-2-flash-high",
+        "swe-2-flash-max",
     )
+    # allow_paid: when True, ANY uid present in the live upstream catalog is
+    # routable — including credit-billed models. Use knowingly.
+    allow_paid: bool = False
     default_model: str = "swe-2-high"
     client_model_id: str = "swe-2"
     client_model_name: str = "SWE-2"
