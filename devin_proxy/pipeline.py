@@ -219,7 +219,7 @@ class Engine:
         if s.plan_preamble and tools and not json_directive and not force_tool:
             plan_directive = (
                 "Before calling tools, briefly state what you are about to "
-                "do — a line or two, as much as needed to be clear, no more.")
+                "do — as much as needed to be clear, no more.")
 
         sys_lead = []
         client_system_parts, rest = [], []
