@@ -406,17 +406,12 @@ class Engine:
         text = think = ""
         meta: dict = {}
         released = False
-        think_as_text = s.thinking_as_content and not client_off and not json_mode
-        think_sent = False
 
         def release():
-            nonlocal released, think_sent
+            nonlocal released
             payload = text if tools else self._strip_noise(text)
             if json_mode:
                 payload = _coerce_json_output(payload)
-            if think_sent:
-                emit({"role": "assistant", "content": "\n\n"})
-                think_sent = False
             if payload:
                 emit({"role": "assistant", "content": payload})
             released = True
@@ -438,16 +433,8 @@ class Engine:
             async for ev in gen:
                 if ev.kind == "thinking":
                     think += ev.value
-                    # Streamed live from the first delta: the model narrating
-                    # its plan is the earliest useful feedback the client gets.
-                    # thinking_as_content puts it in visible text for clients
-                    # that never render reasoning_content.
-                    if client_off:
-                        pass
-                    elif think_as_text:
-                        emit({"role": "assistant", "content": ev.value})
-                        think_sent = True
-                    else:
+                    # Streamed live in its own channel from the first delta.
+                    if not client_off:
                         emit({"role": "assistant", "reasoning_content": ev.value})
                 elif ev.kind == "text":
                     text += ev.value
