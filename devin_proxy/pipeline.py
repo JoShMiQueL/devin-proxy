@@ -210,15 +210,16 @@ class Engine:
                               + ". No markdown fences, no commentary, nothing before or "
                               "after it.")
 
-        # plan preamble: the reply opens with a short statement of intent
-        # before any tool call or edit. Skipped when it would conflict —
-        # json_mode forbids prose, and "required" tool_choice demands the
-        # call as the first output.
+        # plan preamble: a reply that will call tools opens with one short
+        # statement of intent. Skipped when it would conflict — json_mode
+        # forbids prose, and "required" tool_choice demands the call as the
+        # first output. The "before calling tools" phrasing matters: a plain
+        # no-tool answer costs nothing.
         plan_directive = ""
-        if s.plan_preamble and not json_directive and not force_tool:
+        if s.plan_preamble and tools and not json_directive and not force_tool:
             plan_directive = (
-                "Start your reply with a brief plan of what you are about to "
-                "do, 1-3 lines, then carry it out.")
+                "Before calling tools, briefly state what you are about to "
+                "do — a line or two, as much as needed to be clear, no more.")
 
         sys_lead = []
         client_system_parts, rest = [], []
@@ -379,7 +380,12 @@ class Engine:
                          for i, c in enumerate(result.meta["native_calls"])
                          if c.name]
                 if calls:
-                    # result.think already went out as live reasoning deltas.
+                    preface = self._strip_noise(result.text).strip()
+                    # Prose the model opened with (the plan preamble) goes out
+                    # as content before the tool_calls: the "says what it will
+                    # do, then does it" turn hosts expect.
+                    if preface:
+                        emit({"role": "assistant", "content": preface})
                     emit({"role": "assistant", "content": None,
                           "tool_calls": calls})
                     usage_emit(usage_to_openai(result.meta.get("usage")))

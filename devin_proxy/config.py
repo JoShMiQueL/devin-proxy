@@ -46,9 +46,8 @@ class Settings(BaseSettings):
     # comply-then-pivot refusal (recon section first, refusal 3k chars in)
     # at the cost of incremental streaming deltas
     guard_full: bool = False
-    # prepend a system directive so the reply opens with a short plan of what
-    # the model is about to do (before tool calls / edits) — the closing
-    # summary it already writes stays as-is.
+    # prepend a system directive so a reply that will use tools opens with a
+    # short statement of intent; no-op answers skip it and cost no tokens.
     plan_preamble: bool = True
     max_retries: int = 3
     retry_temps: str = "0.85,1.0,1.1"
