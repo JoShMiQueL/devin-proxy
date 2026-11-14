@@ -210,6 +210,16 @@ class Engine:
                               + ". No markdown fences, no commentary, nothing before or "
                               "after it.")
 
+        # plan preamble: the reply opens with a short statement of intent
+        # before any tool call or edit. Skipped when it would conflict —
+        # json_mode forbids prose, and "required" tool_choice demands the
+        # call as the first output.
+        plan_directive = ""
+        if s.plan_preamble and not json_directive and not force_tool:
+            plan_directive = (
+                "Start your reply with a brief plan of what you are about to "
+                "do, 1-3 lines, then carry it out.")
+
         sys_lead = []
         client_system_parts, rest = [], []
         for m in messages:
@@ -229,6 +239,8 @@ class Engine:
             sys_lead.append(override)
         if json_directive:
             sys_lead.append(json_directive)
+        if plan_directive:
+            sys_lead.append(plan_directive)
 
         def system_content(block: str) -> str:
             parts = list(sys_lead)
