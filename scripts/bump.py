@@ -87,8 +87,8 @@ def main() -> None:
     print(f"committed + tagged {tag}")
 
     if push:
-        # HEAD:master works both locally (on master) and in CI (detached HEAD)
-        run("git", "push", "origin", "HEAD:master")
+        # HEAD:main works both locally (on main) and in CI (detached HEAD)
+        run("git", "push", "origin", "HEAD:main")
         run("git", "push", "origin", tag)
         print("pushed — release.yml will build + publish")
 

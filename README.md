@@ -32,12 +32,12 @@ One-liners — install the latest release into an isolated venv:
 
 ```bash
 # Linux / macOS / WSL
-curl -fsSL https://raw.githubusercontent.com/JoShMiQueL/devin-proxy/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/JoShMiQueL/devin-proxy/main/install.sh | bash
 ```
 
 ```powershell
 # Windows
-irm https://raw.githubusercontent.com/JoShMiQueL/devin-proxy/master/install.ps1 | iex
+irm https://raw.githubusercontent.com/JoShMiQueL/devin-proxy/main/install.ps1 | iex
 ```
 
 Or with the usual tooling:

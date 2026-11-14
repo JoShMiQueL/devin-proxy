@@ -52,7 +52,7 @@ devin_proxy/prompts/    <- shipped default override (override-compact.txt)
   `pytest -q` green before every push. Stdlib-only in `scripts/`.
 - Internal imports are relative (`from .x`, `from ..x`); tests import
   `devin_proxy.*` — never `src.*`.
-- Commits to `master`; PRs only for large changes.
+- Commits to `main`; PRs only for large changes.
 
 ## Dev commands
 
@@ -100,7 +100,7 @@ tags `vX.Y.Z`, and pushes; the tag push triggers `gate` (lint+tests) and
   `GITHUB_TOKEN` cannot re-trigger workflows, so a dispatch-created tag would
   silently never build.
 - `devin-proxy update` installs the newest release wheel; `update --check`
-  reports; `update --dev` installs master. Release-asset API calls use
+  reports; `update --dev` installs main. Release-asset API calls use
   `GH_TOKEN`/`GITHUB_TOKEN`/`gh auth token` while the repo is private.
 
 ## CI notes

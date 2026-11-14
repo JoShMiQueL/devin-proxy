@@ -346,7 +346,7 @@ def cmd_update(args) -> int:
         print(f"already at {__version__} (latest)")
         return 0
     if args.dev:
-        spec = f"git+https://github.com/{REPO}@master"
+        spec = f"git+https://github.com/{REPO}@main"
         print(f"installing {spec}")
         r = subprocess.run([sys.executable, "-m", "pip", "install", "-U", spec])
         return r.returncode
@@ -432,7 +432,7 @@ def main(argv: list[str] | None = None) -> int:
     up.add_argument("--check", action="store_true",
                     help="only report whether an update exists")
     up.add_argument("--dev", action="store_true",
-                    help="install master instead of the latest release")
+                    help="install main instead of the latest release")
     up.set_defaults(fn=cmd_update)
 
     args = p.parse_args(argv)
