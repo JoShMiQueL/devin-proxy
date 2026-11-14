@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     # comply-then-pivot refusal (recon section first, refusal 3k chars in)
     # at the cost of incremental streaming deltas
     guard_full: bool = False
+    # stream the model's thinking as visible content deltas — the plan is
+    # readable while it works even for clients that never render
+    # reasoning_content. False keeps thinking in reasoning_content only.
+    thinking_as_content: bool = True
     max_retries: int = 3
     retry_temps: str = "0.85,1.0,1.1"
     connect_retries: int = 3
