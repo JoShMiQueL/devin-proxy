@@ -332,6 +332,43 @@ def cmd_config(_args) -> int:
     return 0
 
 
+def _stop_services() -> list:
+    """Stop registered background instances before an install.
+
+    A running service keeps the old modules in memory (and lazy endpoint
+    imports would load the NEW files into the OLD process mid-update), and
+    pip's uninstall trips on the instance's locked exe on Windows.
+    """
+    try:
+        from .service import instances, stop
+        insts = instances()
+        if insts:
+            stop(all_=True)
+            for i in insts:
+                print(f"stopped {i.name} (pid {i.pid})")
+        return insts
+    except Exception as e:
+        print(f"warn: could not stop services: {e}", file=sys.stderr)
+        return []
+
+
+def _start_services(stopped) -> None:
+    """Bring stopped instances back up on their original host/port."""
+    if not stopped:
+        return
+    try:
+        from .service import start
+        for inst in stopped:
+            try:
+                new, _ = start(inst.name, inst.host, inst.port)
+                print(f"restarted {new.name}: pid {new.pid} at {new.url}")
+            except Exception as e:
+                print(f"warn: could not restart {inst.name}: {e}",
+                      file=sys.stderr)
+    except Exception as e:
+        print(f"warn: restart failed: {e}", file=sys.stderr)
+
+
 def cmd_update(args) -> int:
     rel = _latest_release()
     if not rel:
@@ -345,28 +382,38 @@ def cmd_update(args) -> int:
     if tag == __version__ and not args.dev:
         print(f"already at {__version__} (latest)")
         return 0
-    if args.dev:
-        spec = f"git+https://github.com/{REPO}@main"
-        print(f"installing {spec}")
-        r = subprocess.run([sys.executable, "-m", "pip", "install", "-U", spec])
-        return r.returncode
-    wheel = next((a["browser_download_url"] for a in rel.get("assets", [])
-                  if a["name"].endswith(".whl")), None)
-    if wheel:
-        # wheel in place: never touches devin-proxy.exe, so a running
-        # instance can't brick the install the way pip's uninstall does.
-        from ._selfupdate import _site_packages, cleanup_stale, install_wheel
-        sp = _site_packages()
-        cleaned = cleanup_stale(sp)
-        if cleaned:
-            print(f"cleaned stale dirs: {cleaned}")
-        tgt = install_wheel(wheel, tag)
-        print(f"installed {tag} -> {tgt}")
-        return 0
-    spec = f"git+https://github.com/{REPO}@{rel['tag_name']}"
-    print(f"installing {spec}")
-    r = subprocess.run([sys.executable, "-m", "pip", "install", "-U", spec])
-    return r.returncode
+    stopped = _stop_services()
+    rc = 0
+    try:
+        if args.dev:
+            spec = f"git+https://github.com/{REPO}@main"
+            print(f"installing {spec}")
+            rc = subprocess.run(
+                [sys.executable, "-m", "pip", "install", "-U", spec]
+            ).returncode
+        else:
+            wheel = next(
+                (a["browser_download_url"] for a in rel.get("assets", [])
+                 if a["name"].endswith(".whl")), None)
+            if wheel:
+                # wheel in place: never touches devin-proxy.exe, so a running
+                # instance can't brick the install the way pip's uninstall does.
+                from ._selfupdate import _site_packages, cleanup_stale, install_wheel
+                sp = _site_packages()
+                cleaned = cleanup_stale(sp)
+                if cleaned:
+                    print(f"cleaned stale dirs: {cleaned}")
+                tgt = install_wheel(wheel, tag)
+                print(f"installed {tag} -> {tgt}")
+            else:
+                spec = f"git+https://github.com/{REPO}@{rel['tag_name']}"
+                print(f"installing {spec}")
+                rc = subprocess.run(
+                    [sys.executable, "-m", "pip", "install", "-U", spec]
+                ).returncode
+    finally:
+        _start_services(stopped)
+    return rc
 
 
 def main(argv: list[str] | None = None) -> int:
