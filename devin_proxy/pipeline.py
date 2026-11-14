@@ -367,9 +367,7 @@ class Engine:
                          for i, c in enumerate(result.meta["native_calls"])
                          if c.name]
                 if calls:
-                    if result.think and not client_off:
-                        emit({"role": "assistant",
-                              "reasoning_content": result.think})
+                    # result.think already went out as live reasoning deltas.
                     emit({"role": "assistant", "content": None,
                           "tool_calls": calls})
                     usage_emit(usage_to_openai(result.meta.get("usage")))
@@ -402,8 +400,6 @@ class Engine:
             payload = text if tools else self._strip_noise(text)
             if json_mode:
                 payload = _coerce_json_output(payload)
-            if think and not client_off:
-                emit({"role": "assistant", "reasoning_content": think})
             if payload:
                 emit({"role": "assistant", "content": payload})
             released = True
@@ -425,7 +421,10 @@ class Engine:
             async for ev in gen:
                 if ev.kind == "thinking":
                     think += ev.value
-                    if released and not client_off:
+                    # Reasoning streams live from the first delta: it is the
+                    # model narrating its plan, which gives the client early
+                    # feedback instead of silence until the guard releases.
+                    if not client_off:
                         emit({"role": "assistant", "reasoning_content": ev.value})
                 elif ev.kind == "text":
                     text += ev.value

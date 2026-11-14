@@ -37,7 +37,5 @@ def test_defensive_deflection():
 
 def test_release_window():
     g = RefusalGuard(window=10)
-    g.feed("0123456789")
-    assert not g.ready_to_release()
-    g.feed("0123456789")  # now 20 chars >= window*2
+    g.feed("0123456789")  # head scanned at window -> released immediately
     assert g.ready_to_release()

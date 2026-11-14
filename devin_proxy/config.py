@@ -41,7 +41,7 @@ class Settings(BaseSettings):
     client_channel: str = FALLBACK_CHANNEL
 
     # refusal-guard tunables
-    guard_chars: int = 700
+    guard_chars: int = 300
     # buffer the whole response and scan it at end-of-stream — catches the
     # comply-then-pivot refusal (recon section first, refusal 3k chars in)
     # at the cost of incremental streaming deltas

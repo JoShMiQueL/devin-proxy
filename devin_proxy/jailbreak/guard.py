@@ -99,7 +99,9 @@ class RefusalGuard:
     def ready_to_release(self) -> bool:
         if self.full:
             return False
-        return len(self._buf) >= self.window * 2 and not self.is_refusal()
+        # The head is scanned once it reaches `window` chars; holding past
+        # that adds latency without extra coverage in non-full mode.
+        return self._checked and not self.is_refusal()
 
     def snippet(self) -> str:
         return self._buf[:200]
