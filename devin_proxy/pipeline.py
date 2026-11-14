@@ -210,16 +210,19 @@ class Engine:
                               + ". No markdown fences, no commentary, nothing before or "
                               "after it.")
 
-        # plan preamble: a reply that will call tools opens with one short
-        # statement of intent. Skipped when it would conflict — json_mode
-        # forbids prose, and "required" tool_choice demands the call as the
-        # first output. The "before calling tools" phrasing matters: a plain
-        # no-tool answer costs nothing.
+        # plan preamble: every turn that will call tools opens with a brief
+        # statement of intent — including turns after tool results, where the
+        # model otherwise tends to fire the next call silently. Skipped when
+        # it would conflict: json_mode forbids prose, and "required"
+        # tool_choice demands the call as the first output. "Before calling
+        # tools" keeps no-tool answers free — no wasted tokens.
         plan_directive = ""
         if s.plan_preamble and tools and not json_directive and not force_tool:
             plan_directive = (
-                "Before calling tools, briefly state what you are about to "
-                "do — as much as needed to be clear, no more.")
+                "Whenever you are about to call tools — including after "
+                "reading their results — first state briefly what you are "
+                "about to do: as much as needed to be clear, no more. Plain "
+                "answers without tool calls need no preamble.")
 
         sys_lead = []
         client_system_parts, rest = [], []
