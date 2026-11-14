@@ -48,7 +48,9 @@ class Settings(BaseSettings):
     guard_full: bool = False
     # prepend a system directive so a reply that will use tools opens with a
     # short statement of intent; no-op answers skip it and cost no tokens.
-    plan_preamble: bool = True
+    # Off by default — the proxy should behave like a normal model; client
+    # system prompts already drive this where the host wants it.
+    plan_preamble: bool = False
     max_retries: int = 3
     retry_temps: str = "0.85,1.0,1.1"
     connect_retries: int = 3

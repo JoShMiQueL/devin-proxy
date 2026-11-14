@@ -291,7 +291,11 @@ def build_app(settings: Settings, auth: Auth, engine: Engine,
         if calls:
             msg["tool_calls"] = calls
         if think and not client_off:
+            # reasoning_content for OpenAI-compatible clients (DeepSeek/Qwen
+            # convention); reasoning aliases it for clients that read the
+            # other field — same payload, both names.
             msg["reasoning_content"] = think
+            msg["reasoning"] = think
         fr = finish_meta.get("finish_reason") or ("tool_calls" if calls else "stop")
         return {"id": resp_id, "object": "chat.completion", "created": created,
                 "model": settings.client_model_id,
