@@ -16,7 +16,9 @@ route them. `devin-proxy models` lists routed lanes + credit cost;
 devin_proxy/            <- THE package (flat layout, at repo root)
 ├── __init__.py         <- __version__ — single source of truth
 ├── __main__.py         <- python -m devin_proxy -> cli:main
-├── cli.py              <- argparse: serve (default) / doctor / models / config / update
+├── cli.py              <- argparse: serve/service/doctor/models/config/update;
+                           config set/unset auto-restarts running instances
+                           (progress output, DEVIN_PROXY_QUIET=1 mutes)
 ├── server.py           <- uvicorn bootstrap (serve())
 ├── pipeline.py         <- guarded-retry engine, tool-call delivery
 ├── translate.py        <- OpenAI <-> wire message translation

@@ -90,6 +90,8 @@ devin-proxy config set <KEY> <VALUE>      # persist to ~/.devin-proxy/settings.t
                                           # (auto-restarts running services)
 devin-proxy config unset <KEY>            # remove a persisted key
 devin-proxy config path                   # print the settings file location
+devin-proxy service start|stop|restart    # manage the background instance;
+                                          # progress prints; DEVIN_PROXY_QUIET=1 mutes it
 devin-proxy update [--check] [--dev]      # self-update to latest release
 devin-proxy --version
 ```

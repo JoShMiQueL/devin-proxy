@@ -342,18 +342,21 @@ def _write_settings_toml(data: dict) -> None:
 
 
 def _restart_running_services() -> None:
-    """settings.toml only lands at load_settings() time — bounce any
+    """settings.toml only lands at load_settings() time — bounce every
     registered instance so a config change applies without a manual
     `service restart`. No-op when nothing is running."""
     try:
         from .service import instances, restart
-        for inst in instances():
+        insts = instances()
+        if not insts:
+            return
+        print(f"restarting {len(insts)} instance(s):")
+        for inst in insts:
             try:
                 new, _ = restart(inst.name, inst.host, inst.port)
-                print(f"restarted {new.name}: pid {new.pid} at {new.url}")
+                print(f"  {new.name}: pid {new.pid} at {new.url}")
             except Exception as e:
-                print(f"warn: could not restart {inst.name}: {e}",
-                      file=sys.stderr)
+                print(f"  {inst.name}: warn — {e}", file=sys.stderr)
     except Exception as e:
         print(f"warn: service restart failed: {e}", file=sys.stderr)
 
@@ -378,11 +381,18 @@ def cmd_config(args) -> int:
         data = _settings_toml()
         table = data.setdefault("devin_proxy", {})
         try:
-            table[key] = json.loads(args.value)
+            new_val = json.loads(args.value)
         except json.JSONDecodeError:
-            table[key] = args.value
+            new_val = args.value
+        old_val = table.get(key)
+        if old_val == new_val:
+            print(f"{key} = {new_val}  (unchanged, {SETTINGS_TOML})")
+            return 0
+        table[key] = new_val
         _write_settings_toml(data)
-        print(f"{key} = {table[key]}  ({SETTINGS_TOML})")
+        src = f"was {old_val!r}" if key in table and old_val is not None \
+            else "was unset"
+        print(f"{key} = {new_val}  ({src}, {SETTINGS_TOML})")
         _restart_running_services()
         return 0
 
@@ -393,9 +403,10 @@ def cmd_config(args) -> int:
         key = args.key.lower().removeprefix("devin_proxy_")
         data = _settings_toml()
         if key in (data.get("devin_proxy") or {}):
+            old_val = data["devin_proxy"][key]
             del data["devin_proxy"][key]
             _write_settings_toml(data)
-            print(f"{key} removed  ({SETTINGS_TOML})")
+            print(f"{key} removed  (was {old_val!r}, {SETTINGS_TOML})")
             _restart_running_services()
         else:
             print(f"{key} not set in {SETTINGS_TOML}")
