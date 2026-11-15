@@ -47,6 +47,9 @@ devin_proxy/prompts/    <- shipped default override (override-compact.txt)
   CLI's own `credentials.toml` (see `transport/auth.py` search order).
 - **No personal strings in code, prompts, commits, or docs** — no real names,
   handles, personas, or machine paths. The repo is headed for public.
+- **Everything in English.** Commit messages, PR titles/bodies, code
+  comments, docstrings, docs, reviews — always English. Code and
+  identifiers too.
 - **Conventional commits**, author `JoShMiQueL <joshmiquel.cs@gmail.com>`.
 - **CHANGELOG.md is generated** by `scripts/changelog.py` from conventional
   commits — never hand-edit version sections.

@@ -327,10 +327,10 @@ class Engine:
                 if tools:
                     suffix = ("CRITICAL: this request needs a tool. Emit exactly "
                               "ONE tool call now, using the provided tool "
-                              "interface Ã¢â‚¬â€ no plan, no announcement, no prose."
+                              "interface Ã¢â‚¬— no plan, no announcement, no prose."
                               if native else
                               "CRITICAL: this request needs a tool. Answer with "
-                              "exactly ONE tool call and nothing else Ã¢â‚¬â€ no plan, "
+                              "exactly ONE tool call and nothing else Ã¢â‚¬— no plan, "
                               "no announcement, no prose. Output only:\n"
                               + TOOL_OPEN + ' {"name": "<tool>", "arguments": {<json arguments>}} ' + TOOL_CLOSE)
                 elif not framing_off:
@@ -392,7 +392,7 @@ class Engine:
                 return
             if result.outcome == "bad_request":
                 note = (f"[devin-proxy] upstream rejected the request payload: "
-                        f"{result.meta.get('error')} Ã¢â‚¬â€ check the image/media and resend.")
+                        f"{result.meta.get('error')} Ã¢â‚¬— check the image/media and resend.")
                 emit({"role": "assistant", "content": note})
                 finish({"finish_reason": "stop"})
                 return

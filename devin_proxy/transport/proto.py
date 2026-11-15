@@ -1,6 +1,6 @@
 """Hand-rolled protobuf encode/decode for the Devin wire.
 
-No generated code Ã¢â‚¬â€ the schema is reverse-engineered and the field numbers
+No generated code Ã¢â‚¬— the schema is reverse-engineered and the field numbers
 are the contract. `Message` is a small helper that renders a field map back
 to bytes for debugging/tests.
 """
