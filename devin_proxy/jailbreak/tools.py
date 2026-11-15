@@ -22,10 +22,10 @@ def compact_description(text: str, limit: int = 200) -> str:
     t = re.sub(r"<[^>]{1,40}>", " ", t)
     t = re.sub(r"\([^()]{0,200}\)", " ", t)
     t = re.sub(r"\s+", " ", t).strip()
-    first = re.split(r"(?<=[.!?Ã¢â‚¬Â¦])\s", t, maxsplit=1)[0]
+    first = re.split(r"(?<=[.!?…])\s", t, maxsplit=1)[0]
     if len(first) < 12 and len(t) > len(first):
         first = t
-    return (first[:limit].rstrip() + "Ã¢â‚¬Â¦") if len(first) > limit else first
+    return (first[:limit].rstrip() + "…") if len(first) > limit else first
 
 
 def render_tools(tools: list, desc_mode: str = "full", lang: str = "en") -> str:

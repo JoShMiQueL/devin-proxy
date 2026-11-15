@@ -90,7 +90,7 @@ def sanitize_history_artifacts(msgs):
                     and HISTORY_REFUSAL_RE.search(_norm(content[:4000]))
                     and not m.get("tool_calls") and not m.get("function_call")):
                 original_content = content
-                parts = re.split(r"((?<=[.!?Ã¢â‚¬Â¦])\s+|(?<=[Ã£â‚¬â€šÃ¯Â¼ÂÃ¯Â¼Å¸Ã¯Â¼â€º]))", content)
+                parts = re.split(r"((?<=[.!?…])\s+|(?<=[。！？；]))", content)
                 kept = []
                 for off in range(0, len(parts), 2):
                     sent = parts[off]
