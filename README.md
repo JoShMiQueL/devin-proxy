@@ -182,6 +182,14 @@ applies immediately. `set` reports `(unchanged)` when the value already
 matches — no restart happens — and `(was X)` when it differs, so the
 output always tells you what changed; `unset` echoes the removed value.
 
+```
+$ devin-proxy config set system_file es
+system_file = es  (was unset, ~/.devin-proxy/settings.toml)
+restarting 2 instance(s):
+  default: pid 28564 at http://127.0.0.1:8390
+  sub:     pid 28911 at http://127.0.0.1:8391
+```
+
 All knobs are `DEVIN_PROXY_*` — full reference:
 
 **Server + auth**
