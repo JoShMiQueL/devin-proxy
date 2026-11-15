@@ -178,7 +178,9 @@ needed on first attempt.
 Settings resolve with env vars > `~/.devin-proxy/settings.toml` > defaults.
 `devin-proxy config` shows each value with its source; `config set/unset`
 edits the file and **auto-restarts any running service** so the change
-applies immediately (e.g. `config set system_file es`).
+applies immediately. `set` reports `(unchanged)` when the value already
+matches — no restart happens — and `(was X)` when it differs, so the
+output always tells you what changed; `unset` echoes the removed value.
 
 All knobs are `DEVIN_PROXY_*` — full reference:
 
@@ -220,6 +222,7 @@ All knobs are `DEVIN_PROXY_*` — full reference:
 | var | default | effect |
 |---|---|---|
 | `DEVIN_PROXY_SYSTEM_FILE` | — | override path or bundled name: `en`/`english`, `es`/`spanish` |
+| `DEVIN_PROXY_QUIET` | — | `1` mutes service start/stop progress (CI, scripts) |
 | `DEVIN_PROXY_LIVE` | — | `1` enables live-API pytest marks |
 | `GH_TOKEN` / `GITHUB_TOKEN` | — | GitHub API token for `devin-proxy update` release checks |
 
