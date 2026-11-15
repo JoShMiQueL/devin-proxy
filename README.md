@@ -182,7 +182,9 @@ list. Highlights:
 
 **System-prompt override resolution** — first existing file wins:
 
-1. `DEVIN_PROXY_SYSTEM_FILE` env var (explicit path)
+1. `DEVIN_PROXY_SYSTEM_FILE` env var — either an explicit path or a
+   bundled language name: `en`/`english` (shipped default) or
+   `es`/`spanish`
 2. `~/.devin-proxy/override-compact.txt` → `override.txt` →
    `system_override.txt` (your personal overrides, never shipped)
 3. `devin_proxy/prompts/override-compact.txt` (packaged default)

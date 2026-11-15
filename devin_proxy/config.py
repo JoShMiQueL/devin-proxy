@@ -85,8 +85,9 @@ class Settings(BaseSettings):
     client_model_id: str = "swe-2"
     client_model_name: str = "SWE-2"
 
-    # system override file (hot-reloaded)
-    system_file: Path | None = None
+    # system override file (hot-reloaded). None = the shipped default;
+    # "es"/"english"/"spanish" picks a bundled language variant.
+    system_file: str | None = None
 
     dump_dir: Path | None = None  # set to enable request dumps
 
