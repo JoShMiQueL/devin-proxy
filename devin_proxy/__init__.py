@@ -1,3 +1,3 @@
 """devin-proxy - OpenAI-compatible proxy over the Devin Connect-RPC API."""
 
-__version__ = "0.9.1"
+__version__ = "0.10.0"
