@@ -188,8 +188,14 @@ def start(name: str = DEFAULT_NAME, host: str | None = None,
 
     url = f"http://{host}:{port}"
     deadline = time.time() + wait
+    t0 = time.time()
+    spin = "|/-\\"
+    n = 0
+    _verbose = not os.environ.get("DEVIN_PROXY_QUIET")
     while time.time() < deadline:
         if proc.poll() is not None:
+            if _verbose:
+                print()
             raise RuntimeError(
                 f"service exited rc={proc.returncode} — see {log.name}")
         if _probe(url):
@@ -198,9 +204,18 @@ def start(name: str = DEFAULT_NAME, host: str | None = None,
                             started_at=time.time(), alive=True)
             inst.file.write_text(json.dumps(asdict(inst), indent=2),
                                  encoding="utf-8")
+            if _verbose:
+                print(f"\r{' ' * 60}\r", end="", flush=True)
             return inst, True
+        if _verbose:
+            elapsed = time.time() - t0
+            print(f"\r{spin[n % 4]} waiting for {url}/health "
+                  f"({elapsed:.0f}s)…", end="", flush=True)
+        n += 1
         time.sleep(0.25)
     proc.terminate()
+    if _verbose:
+        print()
     raise RuntimeError(f"service did not answer /health within {wait}s")
 
 
@@ -213,7 +228,11 @@ def stop(name: str | None = None, all_: bool = False,
         inst = get(name or DEFAULT_NAME)
         targets = [inst] if inst else []
     stopped = []
+    _verbose = not os.environ.get("DEVIN_PROXY_QUIET")
     for inst in targets:
+        if _verbose:
+            print(f"stopping {inst.name} (pid {inst.pid})…",
+                  end=" ", flush=True)
         _terminate(inst.pid)
         inst.file.unlink(missing_ok=True)
         stopped.append(inst)
@@ -221,6 +240,8 @@ def stop(name: str | None = None, all_: bool = False,
     for inst in stopped:
         while time.time() < deadline and _pid_alive(inst.pid):
             time.sleep(0.1)
+        if _verbose:
+            print("ok" if not _pid_alive(inst.pid) else "still dying")
     return stopped
 
 
