@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import sys
+import threading
 
 import uvicorn
 
@@ -24,17 +25,32 @@ def serve(host: str | None = None, port: int | None = None) -> int:
     auth = Auth(settings.backend, client_version=settings.client_version)
     override = OverridePrompt(settings.system_file)
 
+    # Prefetch the model catalog in the background — it costs ~1s of
+    # Connect-RPC round-trips and /health doesn't need it. Routes degrade
+    # gracefully (catalog=None -> default routing) until it lands.
     catalog = None
-    try:
-        import asyncio
+    catalog_done = threading.Event()
 
-        from .models.fetch import fetch_catalog
-        catalog = asyncio.new_event_loop().run_until_complete(
-            fetch_catalog(settings.backend, auth.api_key(), "",
-                          settings.client_version))
-    except Exception as e:
-        log = logging.getLogger("devin-proxy")
-        log.warning("catalog prefetch skipped: %s", e)
+    def _fetch():
+        nonlocal catalog
+        try:
+            import asyncio
+
+            from .models.fetch import fetch_catalog
+            catalog = asyncio.new_event_loop().run_until_complete(
+                fetch_catalog(settings.backend, auth.api_key(), "",
+                              settings.client_version))
+            if catalog:
+                app.state.catalog = catalog
+                engine.catalog = catalog
+        except Exception as e:
+            log = logging.getLogger("devin-proxy")
+            log.warning("catalog prefetch skipped: %s", e)
+        finally:
+            catalog_done.set()
+
+    threading.Thread(target=_fetch, daemon=True, name="catalog-fetch").start()
+
     engine = Engine(settings, auth, override, catalog)
     app = build_app(settings, auth, engine, override, catalog)
 
@@ -49,6 +65,8 @@ def serve(host: str | None = None, port: int | None = None) -> int:
         log.info("devin credentials ok (%s)", auth.credentials)
     except Exception as e:
         log.warning("credentials unavailable: %s", e)
+    log.info("catalog prefetch running in background — /v1/models and "
+             "allow_paid routing degraded until it lands")
 
     uvicorn.run(app, host=settings.host, port=settings.port,
                 log_level="warning", access_log=False)

@@ -50,6 +50,18 @@ def _version() -> str:
 
 
 def _probe(url: str, timeout: float = 1.5) -> bool:
+    # cheap TCP check first: uvicorn binds before the app is ready, so a
+    # refused socket means "still importing" and we skip the HTTP round-trip
+    import socket
+    from urllib.parse import urlparse
+    try:
+        host, port = urlparse(url).hostname, urlparse(url).port
+        with socket.socket() as s:
+            s.settimeout(0.2)
+            if s.connect_ex((host, port)) != 0:
+                return False
+    except OSError:
+        return False
     try:
         with urllib.request.urlopen(url + "/health", timeout=timeout) as r:
             return r.status == 200
@@ -236,8 +248,9 @@ def stop(name: str | None = None, all_: bool = False,
         _terminate(inst.pid)
         inst.file.unlink(missing_ok=True)
         stopped.append(inst)
-    deadline = time.time() + wait
     for inst in stopped:
+        # fresh budget per instance — a slow die shouldn't starve the rest
+        deadline = time.time() + wait
         while time.time() < deadline and _pid_alive(inst.pid):
             time.sleep(0.1)
         if _verbose:
