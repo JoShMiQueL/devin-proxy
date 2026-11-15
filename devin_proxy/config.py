@@ -53,7 +53,6 @@ class Settings(BaseSettings):
     plan_preamble: bool = False
     max_retries: int = 3
     retry_temps: str = "0.85,1.0,1.1"
-    connect_retries: int = 3
 
     # tool-declaration ladder: full | compact | none
     tool_desc: str = "compact"
@@ -89,7 +88,6 @@ class Settings(BaseSettings):
     # "es"/"english"/"spanish" picks a bundled language variant.
     system_file: str | None = None
 
-    dump_dir: Path | None = None  # set to enable request dumps
 
 
 def load_settings(**overrides) -> Settings:

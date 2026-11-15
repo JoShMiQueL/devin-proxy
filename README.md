@@ -169,16 +169,53 @@ needed on first attempt.
 
 ## Config
 
-Everything is a `DEVIN_PROXY_*` env var — see `config.py` for the full
-list. Highlights:
+Everything is a `DEVIN_PROXY_*` env var — full reference:
+
+**Server + auth**
+
+| var | default | effect |
+|---|---|---|
+| `DEVIN_PROXY_HOST` / `PORT` | `127.0.0.1` / `8390` | bind address |
+| `DEVIN_PROXY_API_KEY` | — | session token via env; overrides credentials.toml (CI/containers) |
+| `DEVIN_PROXY_CRED` | auto-detected | explicit path to a `credentials.toml` |
+| `DEVIN_PROXY_CREDENTIALS` | auto-detected | same lookup used by the pydantic Settings class |
+| `DEVIN_PROXY_BACKEND` | `https://server.codeium.com` | Connect-RPC upstream |
+| `DEVIN_PROXY_CLIENT_VERSION` | `auto` | `auto` = installed `devin` CLI version, `""` = bundled fallback, `X.Y.Z` = pinned |
+| `DEVIN_PROXY_CLIENT_CHANNEL` | `chisel` | client channel in upstream metadata |
+
+**Model routing**
 
 | var | default | effect |
 |---|---|---|
 | `DEVIN_PROXY_ALLOWED_MODELS` | the 6 free lanes | comma-separated uid allowlist |
 | `DEVIN_PROXY_ALLOW_PAID` | off | route any catalog uid — **bills Devin credits** |
 | `DEVIN_PROXY_DEFAULT_MODEL` | `swe-2-high` | lane for `model: swe-2` / unknown ids |
+| `DEVIN_PROXY_CLIENT_MODEL_ID` | `swe-2` | model id prefix clients can use |
+| `DEVIN_PROXY_CLIENT_MODEL_NAME` | `SWE-2` | display name in `/v1/models` |
+
+**Pipeline behavior**
+
+| var | default | effect |
+|---|---|---|
+| `DEVIN_PROXY_GUARD_CHARS` | `300` | chars buffered for the refusal scan before releasing deltas |
 | `DEVIN_PROXY_GUARD_FULL` | off | buffer whole response for the comply-then-pivot scan |
-| `DEVIN_PROXY_PORT` / `HOST` | 8390 / 127.0.0.1 | bind address |
+| `DEVIN_PROXY_PLAN_PREAMBLE` | off | inject "state intent before tool calls" system directive |
+| `DEVIN_PROXY_MAX_RETRIES` | `3` | refusal-guard retry attempts |
+| `DEVIN_PROXY_RETRY_TEMPS` | `0.85,1.0,1.1` | temperature ladder across retries |
+| `DEVIN_PROXY_TOOL_DESC` | `compact` | tool-declaration mode: `full`, `compact`, `none` |
+| `DEVIN_PROXY_NATIVE_TOOLS` | `true` | advertise tools natively vs rendered-in-prompt fallback |
+| `DEVIN_PROXY_REASON_TURNS` | `0` | signed-thinking replay cap in turns (0 = unlimited) |
+| `DEVIN_PROXY_REASON_CHARS` | `0` | signed-thinking replay cap in chars (0 = unlimited) |
+| `DEVIN_PROXY_IMG_MAX_BYTES` | `12582912` | max image payload size accepted from clients |
+| `DEVIN_PROXY_KEEP_CLIENT_SYSTEM` | off | keep client `system` messages alongside the override |
+
+**Override + testing**
+
+| var | default | effect |
+|---|---|---|
+| `DEVIN_PROXY_SYSTEM_FILE` | — | override path or bundled name: `en`/`english`, `es`/`spanish` |
+| `DEVIN_PROXY_LIVE` | — | `1` enables live-API pytest marks |
+| `GH_TOKEN` / `GITHUB_TOKEN` | — | GitHub API token for `devin-proxy update` release checks |
 
 **System-prompt override resolution** — first existing file wins:
 
