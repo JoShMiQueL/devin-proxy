@@ -183,14 +183,20 @@ def _salvage_tool_obj(raw: str):
 
 
 def _strip_protocol_noise(text: str) -> str:
-    """Remove leftover native-protocol wrappers from a plain answer."""
+    """Remove leftover native-protocol wrappers from a plain answer.
+
+    Only flattens same-line whitespace — paragraph breaks and markdown
+    structure are the model's output, not noise to strip."""
     if not text:
         return text
     t = text
     for tok in ("tools", "call", "argument", "message"):
         t = t.replace(NATIVE_OPEN + tok, " ").replace(NATIVE_CLOSE + tok, " ")
     t = t.replace(NATIVE_OPEN, " ").replace(NATIVE_CLOSE, " ").replace(NATIVE_SEP, " ")
-    return re.sub(r"\s{2,}", " ", t).strip()
+    # collapse horizontal whitespace runs, then blank-line runs beyond one
+    t = re.sub(r"[^\S\n]{2,}", " ", t)
+    t = re.sub(r"\n{3,}", "\n\n", t)
+    return t.strip()
 
 
 def parse_tool_text(text: str):
