@@ -1,9 +1,23 @@
-"""Runtime configuration: every knob is an env var or a CLI flag."""
+"""Runtime configuration: env var > ~/.devin-proxy/settings.toml > default."""
 from __future__ import annotations
 
 import os
+import tomllib
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+SETTINGS_TOML = Path.home() / ".devin-proxy" / "settings.toml"
+
+
+def _file_overrides() -> dict:
+    """DEVIN_PROXY_* entries from ~/.devin-proxy/settings.toml, if any."""
+    try:
+        data = tomllib.loads(SETTINGS_TOML.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+    return {k.lower().removeprefix("devin_proxy_"): v for k, v in
+            (data.get("devin_proxy") or {}).items()}
 
 
 class Settings(BaseSettings):
@@ -65,13 +79,15 @@ class Settings(BaseSettings):
 
 
 def load_settings(**overrides) -> Settings:
+    # file first (lowest priority), env overrides it, explicit kwargs win
+    merged = {**_file_overrides(), **overrides}
     env = {k: v for k, v in os.environ.items() if k.startswith("DEVIN_PROXY_")}
     allowed = env.get("DEVIN_PROXY_ALLOWED_MODELS")
     if allowed:
-        overrides.setdefault(
+        merged.setdefault(
             "allowed_models",
             tuple(x.strip() for x in allowed.split(",") if x.strip()))
-    s = Settings(**overrides)
+    s = Settings(**merged)
     if s.client_version == "auto":
         # track the installed `devin` CLI so a CLI self-update doesn't
         # silently drift our wire fingerprint; constant when no CLI exists

@@ -85,7 +85,10 @@ devin-proxy login [--token T] [--env-only]# store/validate a session token
 devin-proxy logout                        # remove stored credentials
 devin-proxy doctor                        # creds, override, backend, catalog
 devin-proxy models [--all]                # free lanes + expiry dates; --all dumps every upstream uid
-devin-proxy config                        # effective settings
+devin-proxy config                        # effective settings + source (env/file/default)
+devin-proxy config set <KEY> <VALUE>      # persist to ~/.devin-proxy/settings.toml
+devin-proxy config unset <KEY>            # remove a persisted key
+devin-proxy config path                   # print the settings file location
 devin-proxy update [--check] [--dev]      # self-update to latest release
 devin-proxy --version
 ```
@@ -169,7 +172,12 @@ needed on first attempt.
 
 ## Config
 
-Everything is a `DEVIN_PROXY_*` env var — full reference:
+Settings resolve with env vars > `~/.devin-proxy/settings.toml` > defaults.
+`devin-proxy config` shows each value with its source; `config set/unset`
+edits the file so service restarts keep your choices (e.g.
+`config set system_file es`).
+
+All knobs are `DEVIN_PROXY_*` — full reference:
 
 **Server + auth**
 

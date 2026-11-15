@@ -314,16 +314,96 @@ def cmd_models(args) -> int:
     return 0
 
 
-def cmd_config(_args) -> int:
+def _settings_toml() -> dict:
+    """Mutable dict of the [devin_proxy] table in ~/.devin-proxy/settings.toml."""
+    import tomllib
+
+    from .config import SETTINGS_TOML
+    try:
+        return tomllib.loads(SETTINGS_TOML.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+
+
+def _write_settings_toml(data: dict) -> None:
+    from .config import SETTINGS_TOML
+    SETTINGS_TOML.parent.mkdir(parents=True, exist_ok=True)
+    lines = ["[devin_proxy]"]
+    for k in sorted(data.get("devin_proxy") or {}):
+        v = data["devin_proxy"][k]
+        if isinstance(v, bool):
+            lit = "true" if v else "false"
+        elif isinstance(v, (int, float)):
+            lit = str(v)
+        else:
+            lit = json.dumps(str(v))
+        lines.append(f"{k} = {lit}")
+    SETTINGS_TOML.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def s_model_fields() -> set:
+    from .config import Settings
+    return set(Settings.model_fields)
+
+
+def cmd_config(args) -> int:
+    from .config import SETTINGS_TOML, load_settings
+
+    if args.config_cmd == "set":
+        if not args.key or args.value is None:
+            print("usage: devin-proxy config set <KEY> <VALUE>", file=sys.stderr)
+            return 1
+        key = args.key.lower().removeprefix("devin_proxy_")
+        if key not in s_model_fields():
+            print(f"unknown setting: {key} — see `devin-proxy config`",
+                  file=sys.stderr)
+            return 1
+        data = _settings_toml()
+        table = data.setdefault("devin_proxy", {})
+        try:
+            table[key] = json.loads(args.value)
+        except json.JSONDecodeError:
+            table[key] = args.value
+        _write_settings_toml(data)
+        print(f"{key} = {table[key]}  ({SETTINGS_TOML})")
+        return 0
+
+    if args.config_cmd == "unset":
+        if not args.key:
+            print("usage: devin-proxy config unset <KEY>", file=sys.stderr)
+            return 1
+        key = args.key.lower().removeprefix("devin_proxy_")
+        data = _settings_toml()
+        if key in (data.get("devin_proxy") or {}):
+            del data["devin_proxy"][key]
+            _write_settings_toml(data)
+            print(f"{key} removed  ({SETTINGS_TOML})")
+        else:
+            print(f"{key} not set in {SETTINGS_TOML}")
+        return 0
+
+    if args.config_cmd == "path":
+        print(SETTINGS_TOML)
+        return 0
+
+    # default: list effective settings, marking the source of each
     s = load_settings()
+    file_vals = _settings_toml().get("devin_proxy") or {}
+    env_vals = {k[12:].lower(): v for k, v in os.environ.items()
+                if k.startswith("DEVIN_PROXY_")}
     for name in sorted(s.model_fields):
         v = getattr(s, name)
         if isinstance(v, Path):
             v = str(v)
         elif isinstance(v, tuple):
             v = ",".join(v)
-        print(f"{name:<16} = {v}")
-    print(f"{'system_file':<16} = {s.system_file or '(auto)'}")
+        elif v is None:
+            v = "(auto)"
+        src = "env" if name in env_vals else (
+            "file" if name in file_vals else "default")
+        print(f"{name:<18} = {v!s:<24} [{src}]")
+    print(f"\nsettings file: {SETTINGS_TOML} "
+          f"({'exists' if SETTINGS_TOML.exists() else 'none'})")
     return 0
 
 
@@ -467,8 +547,19 @@ def main(argv: list[str] | None = None) -> int:
     mp.add_argument("--all", action="store_true",
                     help="dump the full upstream catalog, not just the lanes")
     mp.set_defaults(fn=cmd_models)
-    sub.add_parser("config", help="dump effective settings"
-                   ).set_defaults(fn=cmd_config)
+    cp = sub.add_parser("config",
+                        help="show/set persistent settings "
+                             "(~/.devin-proxy/settings.toml)")
+    cp.add_argument("config_cmd", nargs="?",
+                    choices=("set", "unset", "list", "path"),
+                    default="list",
+                    help="set/unset a key, list effective values (default), "
+                         "or print the file path")
+    cp.add_argument("key", nargs="?", help="setting name (DEVIN_PROXY_ prefix "
+                                          "optional)")
+    cp.add_argument("value", nargs="?", help="value for 'set' (JSON scalars "
+                                           "ok: true, 300, \"es\")")
+    cp.set_defaults(fn=cmd_config)
 
     up = sub.add_parser("update", help="self-update to latest release")
     up.add_argument("--check", action="store_true",

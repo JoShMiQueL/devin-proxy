@@ -21,7 +21,7 @@ devin_proxy/            <- THE package (flat layout, at repo root)
 ├── pipeline.py         <- guarded-retry engine, tool-call delivery
 ├── translate.py        <- OpenAI <-> wire message translation
 ├── reasoning.py        <- reasoning replay across turns
-├── config.py           <- Settings (all knobs are DEVIN_PROXY_* env vars)
+├── config.py           <- Settings: env var > ~/.devin-proxy/settings.toml > default
 ├── api/                <- FastAPI routes + schemas
 ├── jailbreak/          <- override loading, guard, sanitize, tool rendering
 ├── models/             <- live catalog fetch + tier resolution
