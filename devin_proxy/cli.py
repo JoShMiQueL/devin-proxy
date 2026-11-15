@@ -341,6 +341,23 @@ def _write_settings_toml(data: dict) -> None:
     SETTINGS_TOML.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _restart_running_services() -> None:
+    """settings.toml only lands at load_settings() time — bounce any
+    registered instance so a config change applies without a manual
+    `service restart`. No-op when nothing is running."""
+    try:
+        from .service import instances, restart
+        for inst in instances():
+            try:
+                new, _ = restart(inst.name, inst.host, inst.port)
+                print(f"restarted {new.name}: pid {new.pid} at {new.url}")
+            except Exception as e:
+                print(f"warn: could not restart {inst.name}: {e}",
+                      file=sys.stderr)
+    except Exception as e:
+        print(f"warn: service restart failed: {e}", file=sys.stderr)
+
+
 def s_model_fields() -> set:
     from .config import Settings
     return set(Settings.model_fields)
@@ -366,6 +383,7 @@ def cmd_config(args) -> int:
             table[key] = args.value
         _write_settings_toml(data)
         print(f"{key} = {table[key]}  ({SETTINGS_TOML})")
+        _restart_running_services()
         return 0
 
     if args.config_cmd == "unset":
@@ -378,6 +396,7 @@ def cmd_config(args) -> int:
             del data["devin_proxy"][key]
             _write_settings_toml(data)
             print(f"{key} removed  ({SETTINGS_TOML})")
+            _restart_running_services()
         else:
             print(f"{key} not set in {SETTINGS_TOML}")
         return 0
