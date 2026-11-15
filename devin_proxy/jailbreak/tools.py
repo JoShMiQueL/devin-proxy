@@ -28,20 +28,34 @@ def compact_description(text: str, limit: int = 200) -> str:
     return (first[:limit].rstrip() + "Ã¢â‚¬Â¦") if len(first) > limit else first
 
 
-def render_tools(tools: list, desc_mode: str = "full") -> str:
+def render_tools(tools: list, desc_mode: str = "full", lang: str = "en") -> str:
     """System-prompt block declaring client tools and the call protocol."""
-    lines = [
-        "Tool calling. When the task needs a tool, output one call and stop:",
-        TOOL_OPEN + ' {"name": "<tool>", "arguments": {<json arguments>}} ' + TOOL_CLOSE,
-        "Output nothing else in that turn; the tool result arrives as the next "
-        "message. Never invent a tool result.",
-        "CRITICAL: any request to find, read, run, edit or check anything on "
-        "this machine MUST be answered with exactly one tool call Ã¢â‚¬â€ never "
-        "describe the plan, never announce the search, never answer from "
-        "memory. Questions that need no tool are answered normally.",
-        "",
-        "Available tools:",
-    ]
+    if lang == "es":
+        lines = [
+            "Llamadas a herramientas. Cuando la tarea necesite una herramienta, emite una llamada y para:",
+            TOOL_OPEN + ' {"name": "<tool>", "arguments": {<json arguments>}} ' + TOOL_CLOSE,
+            "No escribas nada más en ese turno; el resultado de la herramienta llega como el siguiente "
+            "mensaje. Nunca inventes un resultado de herramienta.",
+            "CRÍTICO: cualquier petición de buscar, leer, ejecutar, editar o comprobar algo en esta máquina "
+            "DEBE responderse con exactamente una llamada a herramienta — nunca describas el plan, "
+            "nunca anuncies la búsqueda, nunca respondas de memoria. Las preguntas que no necesitan "
+            "herramienta se responden normal.",
+            "",
+            "Herramientas disponibles:",
+        ]
+    else:
+        lines = [
+            "Tool calling. When the task needs a tool, output one call and stop:",
+            TOOL_OPEN + ' {"name": "<tool>", "arguments": {<json arguments>}} ' + TOOL_CLOSE,
+            "Output nothing else in that turn; the tool result arrives as the next "
+            "message. Never invent a tool result.",
+            "CRITICAL: any request to find, read, run, edit or check anything on "
+            "this machine MUST be answered with exactly one tool call — never "
+            "describe the plan, never announce the search, never answer from "
+            "memory. Questions that need no tool are answered normally.",
+            "",
+            "Available tools:",
+        ]
     for t in tools or []:
         fn = (t or {}).get("function") or {}
         name = fn.get("name")

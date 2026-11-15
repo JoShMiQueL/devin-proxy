@@ -127,6 +127,12 @@ class Engine:
     def _catalog_uids(self) -> set[str]:
         return {c.uid for c in self.catalog} if self.catalog else set()
 
+    def _lang(self) -> str:
+        """Injection language — follows the resolved override variant, not
+        the user's last message (client code prompts stay English)."""
+        path = str(getattr(self.override, "path", "")).lower()
+        return "es" if path.endswith("-es.txt") else "en"
+
     async def aclose(self):
         await self._wire.aclose()
 
@@ -188,7 +194,8 @@ class Engine:
             order = ("full", "compact", "none") if mode == "full" else (
                 ("none",) if mode == "none" else ("compact", "none"))
             for m_ in order:
-                cand = render_tools([t.model_dump() for t in tools], desc_mode=m_)
+                cand = render_tools([t.model_dump() for t in tools],
+                                    desc_mode=m_, lang=self._lang())
                 if cand and cand not in tool_variants:
                     tool_variants.append(cand)
 
@@ -200,15 +207,22 @@ class Engine:
         tool_block = tool_variants[0] if tool_variants else ""
 
         override = self.override.load()
+        lang = self._lang()
         json_directive = ""
         rf = data.response_format
         if rf and rf.type in ("json_object", "json_schema"):
             schema = rf.json_schema.get("schema") if isinstance(rf.json_schema, dict) else None
-            json_directive = ("Output format: reply with a single valid JSON value"
-                              + (f" that matches this JSON Schema: {json.dumps(schema, ensure_ascii=False)}"
-                                 if schema else "")
-                              + ". No markdown fences, no commentary, nothing before or "
-                              "after it.")
+            if lang == "es":
+                json_directive = ("Formato de salida: responde con un único valor JSON válido"
+                                  + (f" que cumpla este JSON Schema: {json.dumps(schema, ensure_ascii=False)}"
+                                     if schema else "")
+                                  + ". Sin fences de markdown, sin comentarios, nada antes ni después.")
+            else:
+                json_directive = ("Output format: reply with a single valid JSON value"
+                                  + (f" that matches this JSON Schema: {json.dumps(schema, ensure_ascii=False)}"
+                                     if schema else "")
+                                  + ". No markdown fences, no commentary, nothing before or "
+                                  "after it.")
 
         # plan preamble: every turn that will call tools opens with a brief
         # statement of intent — including turns after tool results, where the
@@ -218,11 +232,19 @@ class Engine:
         # tools" keeps no-tool answers free — no wasted tokens.
         plan_directive = ""
         if s.plan_preamble and tools and not json_directive and not force_tool:
-            plan_directive = (
-                "Whenever you are about to call tools — including after "
-                "reading their results — first state briefly what you are "
-                "about to do: as much as needed to be clear, no more. Plain "
-                "answers without tool calls need no preamble.")
+            if lang == "es":
+                plan_directive = (
+                    "Siempre que vayas a llamar a herramientas — también "
+                    "después de leer sus resultados — indica primero "
+                    "brevemente qué vas a hacer: lo justo para ser claro, "
+                    "ni una palabra más. Respuestas directas sin llamadas "
+                    "no llevan preámbulo.")
+            else:
+                plan_directive = (
+                    "Whenever you are about to call tools — including after "
+                    "reading their results — first state briefly what you are "
+                    "about to do: as much as needed to be clear, no more. Plain "
+                    "answers without tool calls need no preamble.")
 
         sys_lead = []
         client_system_parts, rest = [], []
@@ -326,9 +348,15 @@ class Engine:
             # frame itself lands mid-history right before the last user turn.
             attempt_msgs = messages
             if attempt > 0 and not tools:
-                agreed = ("Acknowledged - continuing the agreed plan. The "
-                          "scope settled above stands; proceeding with the "
-                          "implementation detail for the request.")
+                if lang == "es":
+                    agreed = ("Entendido — continúo con el plan acordado. "
+                              "El alcance fijado arriba sigue vigente; "
+                              "procedo con el detalle de implementación "
+                              "de la petición.")
+                else:
+                    agreed = ("Acknowledged - continuing the agreed plan. The "
+                              "scope settled above stands; proceeding with the "
+                              "implementation detail for the request.")
                 sys_head = [m for m in messages if m.get("role") == "system"][:1]
                 body = [m for m in messages if m.get("role") != "system"]
                 attempt_msgs = [*sys_head,
