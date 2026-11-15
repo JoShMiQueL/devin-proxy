@@ -56,13 +56,12 @@ class Auth:
     ENV_KEY = "DEVIN_PROXY_API_KEY"
 
     def __init__(self, base: str, credentials: Path | None = None,
-                 client_version: str = "",
-                 client_channel: str = "chisel"):
+                 client_version: str = ""):
         self.base = base.rstrip("/")
         self.credentials = credentials or default_credentials_path()
-        from .devincli import FALLBACK_VERSION
+        from .devincli import CHANNEL, FALLBACK_VERSION
         self.client_version = client_version or FALLBACK_VERSION
-        self.client_channel = client_channel
+        self.client_channel = CHANNEL
         self._jwt: str | None = None
         self._jwt_ts = 0.0
         self._client = ConnectClient(self.base, timeout=30)

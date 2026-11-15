@@ -4,6 +4,7 @@ from __future__ import annotations
 from ..models.catalog import metadata
 from ..transport.proto import Message, fields
 from ..transport.wire import ConnectClient
+from .devincli import CHANNEL
 
 CAPTION_PATH = "/exa.api_server_pb.ApiServerService/GetImageCaption"
 
@@ -11,13 +12,12 @@ CAPTION_PATH = "/exa.api_server_pb.ApiServerService/GetImageCaption"
 async def image_caption(base: str, api_key: str, jwt: str,
                         image_b64: str, mime: str = "image/png",
                         client_version: str = "",
-                        client_channel: str = "chisel",
                         timeout: float = 30.0) -> str:
     """Return the model's caption/description for a base64 image."""
     img = Message().str_(1, image_b64).str_(2, mime)
     body = (Message()
             .msg(1, Message(metadata(api_key, jwt, client_version,
-                                     client_channel)))
+                                     CHANNEL)))
             .msg(2, img)
             .body)
     client = ConnectClient(base, timeout=timeout)

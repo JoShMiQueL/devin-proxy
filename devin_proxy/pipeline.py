@@ -257,8 +257,9 @@ class Engine:
         elif json_directive:
             messages = [{"role": "system", "content": json_directive}, *messages]
 
-        n_replay, replay_chars = attach_reasoning(
-            messages, s.reason_turns, s.reason_chars)
+        # replay caps were env knobs nobody tuned; the in-memory cache is
+        # already bounded (256 entries x 65k chars) — replay everything.
+        n_replay, replay_chars = attach_reasoning(messages)
 
         kind = pick_kind(messages)
         framing_off = "(off" in str(kind)
@@ -433,7 +434,6 @@ class Engine:
         try:
             gen = chat_stream(self._wire, api_key, jwt, model, prompts, system,
                               client_version=s.client_version,
-                              client_channel=s.client_channel,
                               temperature=temp, max_tokens=max_tokens,
                               tools=tool_defs if native else None,
                               tool_choice=tool_choice,

@@ -103,7 +103,7 @@ def completion_cfg(temperature: float = 0.4, max_tokens: int = 8192,
 
 def chat_request(api_key: str, jwt: str, model_uid: str,
                  prompt_msgs: list[bytes], system_prompt: str,
-                 *, client_version: str, client_channel: str,
+                 *, client_version: str,
                  temperature: float = 0.4, max_tokens: int = 8192,
                  first_temperature: float | None = None,
                  tools: list[bytes] | None = None,
@@ -115,8 +115,9 @@ def chat_request(api_key: str, jwt: str, model_uid: str,
                  service_tier: str | None = None,
                  request_id: str | None = None) -> bytes:
     from ..models.catalog import metadata
+    from .devincli import CHANNEL
     r = Message()
-    r.msg(1, Message(metadata(api_key, jwt, client_version, client_channel)))
+    r.msg(1, Message(metadata(api_key, jwt, client_version, CHANNEL)))
     r.str_(2, system_prompt or "You are a helpful coding assistant.")
     for p in prompt_msgs:
         r.msg(3, Message(p))

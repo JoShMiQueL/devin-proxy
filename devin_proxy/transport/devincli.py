@@ -12,7 +12,9 @@ import shutil
 import subprocess
 
 FALLBACK_VERSION = "3000.11.234"
-FALLBACK_CHANNEL = "chisel"
+#: channel the devin CLI presents; the backend expects exactly this.
+CHANNEL = "chisel"
+FALLBACK_CHANNEL = CHANNEL  # kept for import compat
 
 _ver_re = re.compile(r"(\d+\.\d+\.\d+)")
 

@@ -92,7 +92,7 @@ def build_app(settings: Settings, auth: Auth, engine: Engine,
             "id": settings.client_model_id,
             "object": "model",
             "created": int(time.time()),
-            "name": settings.client_model_name,
+            "name": settings.client_model_id.upper(),
             "owned_by": "devin",
             "context_window": (default_cfg.context if default_cfg and default_cfg.context else 262144),
             "max_tokens": 16384,
@@ -146,7 +146,7 @@ def build_app(settings: Settings, auth: Auth, engine: Engine,
             from ..transport.caption import image_caption
             cap = await image_caption(
                 settings.backend, auth.api_key(), await auth.jwt(),
-                b64, mime, settings.client_version, settings.client_channel)
+                b64, mime, settings.client_version)
             return {"caption": cap}
         except Exception as e:
             log.exception("image caption failed")
@@ -163,7 +163,7 @@ def build_app(settings: Settings, auth: Auth, engine: Engine,
             from ..transport.websearch import web_search
             results = await web_search(
                 settings.backend, auth.api_key(), await auth.jwt(), query,
-                settings.client_version, settings.client_channel)
+                settings.client_version)
             return {"object": "list", "data": results}
         except Exception as e:
             log.exception("web search failed")

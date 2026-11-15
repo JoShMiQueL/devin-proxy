@@ -4,18 +4,18 @@ from __future__ import annotations
 from ..models.catalog import metadata
 from ..transport.proto import Message, fields
 from ..transport.wire import ConnectClient
+from .devincli import CHANNEL
 
 WS_PATH = "/exa.api_server_pb.ApiServerService/GetWebSearchResults"
 
 
 async def web_search(base: str, api_key: str, jwt: str, query: str,
                      client_version: str = "",
-                     client_channel: str = "chisel",
                      timeout: float = 30.0) -> list[dict]:
     """Return [{'id','url','title','content'}] for a search query."""
     body = (Message()
             .msg(1, Message(metadata(api_key, jwt, client_version,
-                                     client_channel)))
+                                     CHANNEL)))
             .str_(2, query)
             .body)
     client = ConnectClient(base, timeout=timeout)

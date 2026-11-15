@@ -167,8 +167,7 @@ def cmd_login(args) -> int:
     if not token:
         print("no token given", file=sys.stderr)
         return 1
-    auth = Auth(s.backend, client_version=s.client_version,
-                client_channel=s.client_channel)
+    auth = Auth(s.backend, client_version=s.client_version)
     prev = os.environ.get(Auth.ENV_KEY)
     os.environ[Auth.ENV_KEY] = token
     try:
@@ -210,7 +209,8 @@ def cmd_doctor(_args) -> int:
     print(f"backend     : {s.backend}")
     pinned = bool(os.environ.get("DEVIN_PROXY_CLIENT_VERSION"))
     src = "pinned" if pinned else "auto (devin CLI/fallback)"
-    print(f"fingerprint : {s.client_version} / {s.client_channel} [{src}]")
+    from .transport.devincli import CHANNEL
+    print(f"fingerprint : {s.client_version} / {CHANNEL} [{src}]")
     paid = " + allow_paid (catalog uids bill credits)" if s.allow_paid else ""
     print(f"models      : {', '.join(s.allowed_models)} "
           f"(default={s.default_model}, client sees '{s.client_model_id}')"
@@ -219,10 +219,9 @@ def cmd_doctor(_args) -> int:
     # credentials
     try:
         from .transport.auth import Auth
-        auth = Auth(s.backend, s.credentials,
-                    s.client_version, s.client_channel)
+        auth = Auth(s.backend, client_version=s.client_version)
         key = auth.api_key()
-        print(f"credentials : ok ({s.credentials}, key …{key[-6:]})")
+        print(f"credentials : ok ({auth.credentials}, key …{key[-6:]})")
     except Exception as e:
         ok = False
         auth = None
@@ -242,8 +241,7 @@ def cmd_doctor(_args) -> int:
             loop = asyncio.new_event_loop()
             cat = loop.run_until_complete(
                 fetch_catalog(s.backend, auth.api_key(), "",
-                              s.client_version, s.client_channel,
-                              timeout=10))
+                              s.client_version, timeout=10))
             n = len(list(cat)) if cat else 0
             print(f"backend     : ok (catalog: {n} configs)" if cat
                   else "backend     : reachable, catalog empty")
@@ -251,8 +249,7 @@ def cmd_doctor(_args) -> int:
                 ok = False
             me = loop.run_until_complete(
                 fetch_user_status(s.backend, auth.api_key(), "",
-                                  s.client_version, s.client_channel,
-                                  timeout=10))
+                                  s.client_version, timeout=10))
             if me:
                 who = f"{me['name']} <{me['email']}>" if me.get("email") \
                     else me.get("name", "?")
@@ -270,10 +267,9 @@ def cmd_models(args) -> int:
     s = load_settings()
     from .models.fetch import fetch_catalog
     from .transport.auth import Auth
-    auth = Auth(s.backend, s.credentials, s.client_version, s.client_channel)
+    auth = Auth(s.backend, client_version=s.client_version)
     cat = asyncio.new_event_loop().run_until_complete(
-        fetch_catalog(s.backend, auth.api_key(), "",
-                      s.client_version, s.client_channel))
+        fetch_catalog(s.backend, auth.api_key(), "", s.client_version))
     if not cat:
         print("catalog unavailable", file=sys.stderr)
         return 1
@@ -294,8 +290,7 @@ def cmd_models(args) -> int:
                 f"{note} aliases={','.join(cfg.aliases) if cfg else ''}"
                 ).rstrip()
 
-    print(f"client-facing model: {s.client_model_id} ({s.client_model_name}) "
-          f"-> {s.default_model}")
+    print(f"client-facing model: {s.client_model_id} -> {s.default_model}")
     if s.allow_paid:
         print("allow_paid=ON — every catalog uid routes; FREE marks the "
               "no-credit lanes, the rest bills Devin credits")

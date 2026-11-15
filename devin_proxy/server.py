@@ -21,8 +21,7 @@ def serve(host: str | None = None, port: int | None = None) -> int:
         format="[devin-proxy] %(message)s",
         stream=sys.stderr)
 
-    auth = Auth(settings.backend, settings.credentials,
-                settings.client_version, settings.client_channel)
+    auth = Auth(settings.backend, client_version=settings.client_version)
     override = OverridePrompt(settings.system_file)
 
     catalog = None
@@ -32,7 +31,7 @@ def serve(host: str | None = None, port: int | None = None) -> int:
         from .models.fetch import fetch_catalog
         catalog = asyncio.new_event_loop().run_until_complete(
             fetch_catalog(settings.backend, auth.api_key(), "",
-                          settings.client_version, settings.client_channel))
+                          settings.client_version))
     except Exception as e:
         log = logging.getLogger("devin-proxy")
         log.warning("catalog prefetch skipped: %s", e)

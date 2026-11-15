@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 
+from ..transport.devincli import CHANNEL
 from ..transport.proto import Message
 from ..transport.wire import ConnectClient
 from .catalog import ModelCatalog, metadata
@@ -14,11 +15,11 @@ STATUS_PATH = "/exa.api_server_pb.ApiServerService/GetUserStatus"
 
 
 async def fetch_catalog(base: str, api_key: str, jwt: str,
-                        client_version: str, client_channel: str,
+                        client_version: str,
                         timeout: float = 30.0) -> ModelCatalog | None:
     """Return a ModelCatalog from the live API, or None on failure."""
     body = Message().msg(1, Message(metadata(
-        api_key, jwt, client_version, client_channel))).body
+        api_key, jwt, client_version, CHANNEL))).body
     client = ConnectClient(base, timeout=timeout)
     try:
         raw = await client.unary(CFG_PATH, body)
@@ -33,12 +34,12 @@ async def fetch_catalog(base: str, api_key: str, jwt: str,
 
 
 async def fetch_user_status(base: str, api_key: str, jwt: str,
-                            client_version: str, client_channel: str,
+                            client_version: str,
                             timeout: float = 15.0) -> dict:
     """GetUserStatus -> {"name", "email", ...}; best-effort profile."""
     from ..transport.proto import fields
     body = Message().msg(1, Message(metadata(
-        api_key, jwt, client_version, client_channel))).body
+        api_key, jwt, client_version, CHANNEL))).body
     client = ConnectClient(base, timeout=timeout)
     try:
         raw = await client.unary(STATUS_PATH, body)

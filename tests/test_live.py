@@ -36,8 +36,7 @@ def settings():
 
 @pytest.fixture()
 def auth(settings):
-    return Auth(settings.backend, settings.credentials,
-                settings.client_version, settings.client_channel)
+    return Auth(settings.backend, client_version=settings.client_version)
 
 
 async def test_jwt_mints(auth):
@@ -48,8 +47,7 @@ async def test_jwt_mints(auth):
 async def test_catalog_has_swe2(settings, auth):
     from devin_proxy.models.fetch import fetch_catalog
     cat = await fetch_catalog(settings.backend, auth.api_key(), "",
-                              settings.client_version,
-                              settings.client_channel, timeout=15)
+                              settings.client_version, timeout=15)
     assert cat is not None
     uids = {c.uid for c in cat}
     assert {"swe-2-medium", "swe-2-high", "swe-2-max"} <= uids
@@ -58,8 +56,7 @@ async def test_catalog_has_swe2(settings, auth):
 async def test_user_status_profile(settings, auth):
     from devin_proxy.models.fetch import fetch_user_status
     me = await fetch_user_status(settings.backend, auth.api_key(), "",
-                                 settings.client_version,
-                                 settings.client_channel, timeout=15)
+                                 settings.client_version, timeout=15)
     assert me.get("name")
 
 

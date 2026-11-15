@@ -178,10 +178,8 @@ Everything is a `DEVIN_PROXY_*` env var — full reference:
 | `DEVIN_PROXY_HOST` / `PORT` | `127.0.0.1` / `8390` | bind address |
 | `DEVIN_PROXY_API_KEY` | — | session token via env; overrides credentials.toml (CI/containers) |
 | `DEVIN_PROXY_CRED` | auto-detected | explicit path to a `credentials.toml` |
-| `DEVIN_PROXY_CREDENTIALS` | auto-detected | same lookup used by the pydantic Settings class |
 | `DEVIN_PROXY_BACKEND` | `https://server.codeium.com` | Connect-RPC upstream |
 | `DEVIN_PROXY_CLIENT_VERSION` | `auto` | `auto` = installed `devin` CLI version, `""` = bundled fallback, `X.Y.Z` = pinned |
-| `DEVIN_PROXY_CLIENT_CHANNEL` | `chisel` | client channel in upstream metadata |
 
 **Model routing**
 
@@ -191,7 +189,6 @@ Everything is a `DEVIN_PROXY_*` env var — full reference:
 | `DEVIN_PROXY_ALLOW_PAID` | off | route any catalog uid — **bills Devin credits** |
 | `DEVIN_PROXY_DEFAULT_MODEL` | `swe-2-high` | lane for `model: swe-2` / unknown ids |
 | `DEVIN_PROXY_CLIENT_MODEL_ID` | `swe-2` | model id prefix clients can use |
-| `DEVIN_PROXY_CLIENT_MODEL_NAME` | `SWE-2` | display name in `/v1/models` |
 
 **Pipeline behavior**
 
@@ -204,8 +201,6 @@ Everything is a `DEVIN_PROXY_*` env var — full reference:
 | `DEVIN_PROXY_RETRY_TEMPS` | `0.85,1.0,1.1` | temperature ladder across retries |
 | `DEVIN_PROXY_TOOL_DESC` | `compact` | tool-declaration mode: `full`, `compact`, `none` |
 | `DEVIN_PROXY_NATIVE_TOOLS` | `true` | advertise tools natively vs rendered-in-prompt fallback |
-| `DEVIN_PROXY_REASON_TURNS` | `0` | signed-thinking replay cap in turns (0 = unlimited) |
-| `DEVIN_PROXY_REASON_CHARS` | `0` | signed-thinking replay cap in chars (0 = unlimited) |
 | `DEVIN_PROXY_IMG_MAX_BYTES` | `12582912` | max image payload size accepted from clients |
 | `DEVIN_PROXY_KEEP_CLIENT_SYSTEM` | off | keep client `system` messages alongside the override |
 
