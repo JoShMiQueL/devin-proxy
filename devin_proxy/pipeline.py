@@ -447,9 +447,9 @@ class Engine:
                 json_mode=bool(json_directive), client_off=client_off)
 
             if result.outcome == "refused":
-                log.info("attempt %d/%d refused (text=%dc think=%dc kind=%s)",
+                log.info("attempt %d/%d refused (text=%dc think=%dc frames=%s kind=%s)",
                          attempt + 1, dev_attempts, len(result.text),
-                         len(result.think), kind)
+                         len(result.think), result.meta.get("frames", "?"), kind)
                 continue
             if result.outcome == "blocked":
                 block_msg = result.meta.get("blocked", "")
@@ -518,6 +518,7 @@ class Engine:
         text = think = ""
         meta: dict = {}
         released = False
+        n_frames = 0
 
         def release():
             nonlocal released
@@ -542,6 +543,7 @@ class Engine:
                               top_p=top_p, stop=stop, seed=seed,
                               service_tier=service_tier)
             async for ev in gen:
+                n_frames += 1
                 if ev.kind == "thinking":
                     think += ev.value
                     # Streamed live in its own channel from the first delta.
@@ -607,8 +609,9 @@ class Engine:
         if meta.get("native_calls"):
             return AttemptResult("ok", text, think, meta)
         if not released and not text.strip():
+            meta["frames"] = n_frames
             if not final:
-                return AttemptResult("refused", text, think)
+                return AttemptResult("refused", text, think, meta)
             note = (f"[devin-proxy] upstream returned reasoning without an "
                     f"answer (think={len(think)}c) — nothing to deliver. "
                     "Send the request again or switch model.")
