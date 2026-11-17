@@ -107,6 +107,16 @@ tags `vX.Y.Z`, and pushes; the tag push triggers `gate` (lint+tests) and
 - `devin-proxy update` installs the newest release wheel; `update --check`
   reports; `update --dev` installs main. Release-asset API calls use
   `GH_TOKEN`/`GITHUB_TOKEN`/`gh auth token` while the repo is private.
+  **update does NOT restart running services** — the wheel installs in
+  place and a live service keeps the old build until `service restart`.
+  The pip fallback still stops services (locked-exe on Windows) but the
+  supervisor respawns them.
+- **Service supervisor:** `service start` launches `devin_proxy supervise`
+  (not bare `serve`). The supervisor owns the real `serve` child and
+  respawns it on any non-zero exit (~0.5s port gap) — a bare serve dying
+  mid-request left the port unbound until manual restart (client-visible
+  ECONNREFUSED). A clean exit code 0 = deliberate shutdown, not respawned.
+  `stop`/`restart` kill the supervisor; taskkill /T takes the child too.
 
 ## CI notes
 
