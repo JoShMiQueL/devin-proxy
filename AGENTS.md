@@ -148,6 +148,16 @@ message.
 
 - `GetChatMessage` = `application/connect+proto` + gzip envelope; other RPCs
   are `application/proto`.
+- `proto.fields()` is a TOLERANT reader — upstream frames (progress/status
+  blocks, toolcall sub-messages, usage) carry nested payloads that are NOT
+  clean protobuf (groups wt=3/4, reserved wiretypes, opaque blobs). It must
+  never raise: it yields what decodes and stops on the unknown. A raise there
+  surfaced upstream as a phantom "refused" attempt that burned a retry
+  round-trip (~+4s each). `chat_stream` also wraps per-frame decode.
+- Refusal guard releases early: it stops buffering once the head is long
+  enough to have seen a refusal opening (~80c or `guard_chars`, whichever is
+  smaller) — every REFUSAL_RE marker opens in the first few words. Holding to
+  the full window only inflates TTFT; `guard_full` covers comply-then-pivot.
 - Tool defs ride field 10 (`ChatToolDefinition`: 1=name, 2=desc, 3=schema-json,
   12=strict). The model answers with field 6 `deltaToolCalls` (id/name once,
   then `argumentsJson` fragments). `tool_choice`: field 12 -> `f_str(2, fname)`
@@ -155,6 +165,12 @@ message.
 - Catalog prefetch = `GetCliModelConfigs` (~140 configs upstream).
 - `/health` and `/v1/models` are public endpoints; `/v1/chat/completions`,
   `/v1/web_search`, `/v1/image_caption` go through the engine.
+- opencode v2 replays `reasoning_content` back inside every later assistant
+  history turn — unsigned, so it never reaches the wire (only the signed
+  cache does), but it inflates the POST and opencode's token readout.
+  `emit_reasoning=false` + `strip_incoming_reasoning=true` are the defaults
+  for this; set `emit_reasoning` on only for clients that display reasoning
+  without echoing it.
 
 ## ROADMAP.md
 

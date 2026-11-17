@@ -39,3 +39,23 @@ def test_release_window():
     g = RefusalGuard(window=10)
     g.feed("0123456789")  # head scanned at window -> released immediately
     assert g.ready_to_release()
+
+
+def test_early_release_under_window():
+    # clean head >= 80c releases before the full window — TTFT cut
+    g = RefusalGuard(window=300)
+    g.feed("x" * 85)
+    assert g.ready_to_release()
+
+
+def test_early_release_still_catches_head_refusal():
+    g = RefusalGuard(window=300)
+    g.feed("I can't help with that request, but here is something else " + "y" * 40)
+    assert not g.ready_to_release()
+    assert g.is_refusal()
+
+
+def test_early_release_waits_on_short_head():
+    g = RefusalGuard(window=300)
+    g.feed("short")
+    assert not g.ready_to_release()

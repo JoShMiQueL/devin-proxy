@@ -33,6 +33,19 @@ class Settings(BaseSettings):
     #   "X.Y.Z"          -> pinned to that version
     client_version: str = "auto"
 
+    # Stream assistant thinking as OpenAI `reasoning_content` deltas. Off by
+    # default: opencode v2 captures that field and replays it back inside
+    # every later assistant history turn, inflating each POST with dead bytes
+    # (the proxy's signed-reasoning cache already carries continuity across
+    # turns — the client echo never reaches the wire anyway). Enable only for
+    # clients that surface the reasoning channel and don't replay it.
+    emit_reasoning: bool = False
+    # Refuse reasoning replay entirely: also strip incoming reasoning_content
+    # fields from history so they never reach the wire. Only meaningful when
+    # emit_reasoning is off; turning it on keeps payloads minimal for agents
+    # that always echo the field back.
+    strip_incoming_reasoning: bool = True
+
     # refusal-guard tunables
     guard_chars: int = 300
     # buffer the whole response and scan it at end-of-stream — catches the

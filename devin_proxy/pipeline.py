@@ -155,6 +155,15 @@ class Engine:
             model = req_uid
 
         messages = [m.model_dump(exclude_none=True) for m in data.messages]
+        if s.strip_incoming_reasoning:
+            # Agents that echo reasoning_content back each turn (opencode v2)
+            # send dead bytes — unsigned thinking never reaches the wire anyway
+            # (only the signed cache does), so drop it before it costs tokens.
+            for m in messages:
+                if m.get("role") == "assistant" and not m.get("signature"):
+                    m.pop("reasoning_content", None)
+                    m.pop("reasoning", None)
+                    m.pop("reasoning_text", None)
         messages, dropped_empty = sanitize_messages(messages)
         messages, artifact_stats = sanitize_history_artifacts(messages)
         messages, dropped_after = sanitize_messages(messages)
@@ -471,7 +480,10 @@ class Engine:
                 if ev.kind == "thinking":
                     think += ev.value
                     # Streamed live in its own channel from the first delta.
-                    if not client_off:
+                    # Gated by emit_reasoning: opencode v2 replays this field
+                    # back into every later turn, so for that client keep the
+                    # signed cache (continuity) but suppress the wire echo.
+                    if not client_off and s.emit_reasoning:
                         emit({"role": "assistant", "reasoning_content": ev.value})
                 elif ev.kind == "text":
                     text += ev.value

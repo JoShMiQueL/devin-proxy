@@ -61,32 +61,67 @@ def _rd_varint(b: bytes, i: int) -> tuple[int, int]:
 
 
 def fields(b: bytes) -> Iterator[tuple[int, int, Any]]:
-    """Yield (field_no, wire_type, value). value is bytes for len-delim, int for varint."""
+    """Yield (field_no, wire_type, value). value is bytes for len-delim, int for varint.
+
+    Tolerant reader: upstream occasionally embeds payloads that are not clean
+    protobuf (progress frames, groups, opaque blobs). A wire type we cannot
+    consume must not abort the whole stream — we stop parsing that buffer and
+    yield what we already decoded. Raising here surfaced upstream as a phantom
+    "refused" attempt that burned a retry round-trip.
+    """
     i, n = 0, len(b)
     while i < n:
-        k, i = _rd_varint(b, i)
+        try:
+            k, i = _rd_varint(b, i)
+        except (IndexError, ValueError):
+            return
         no, wt = k >> 3, k & 7
-        if wt == 0:
-            v, i = _rd_varint(b, i)
-            yield no, wt, v
-        elif wt == 1:
-            if i + 8 > n:
-                raise ValueError("truncated fixed64")
-            yield no, wt, b[i:i + 8]
-            i += 8
-        elif wt == 2:
-            ln, i = _rd_varint(b, i)
-            if i + ln > n:
-                raise ValueError("truncated len-delim")
-            yield no, wt, b[i:i + ln]
-            i += ln
-        elif wt == 5:
-            if i + 4 > n:
-                raise ValueError("truncated fixed32")
-            yield no, wt, b[i:i + 4]
-            i += 4
-        else:
-            raise ValueError(f"unknown wiretype {wt}")
+        try:
+            if wt == 0:
+                v, i = _rd_varint(b, i)
+                yield no, wt, v
+            elif wt == 1:
+                if i + 8 > n:
+                    return
+                yield no, wt, b[i:i + 8]
+                i += 8
+            elif wt == 2:
+                ln, i = _rd_varint(b, i)
+                if i + ln > n:
+                    return
+                yield no, wt, b[i:i + ln]
+                i += ln
+            elif wt == 5:
+                if i + 4 > n:
+                    return
+                yield no, wt, b[i:i + 4]
+                i += 4
+            elif wt == 3:
+                # start-group: skip until matching end-group, nesting-aware
+                depth = 1
+                while i < n and depth:
+                    k2, i = _rd_varint(b, i)
+                    w2 = k2 & 7
+                    if w2 == 3:
+                        depth += 1
+                    elif w2 == 4:
+                        depth -= 1
+                    elif w2 == 0:
+                        _, i = _rd_varint(b, i)
+                    elif w2 == 1:
+                        i += 8
+                    elif w2 == 2:
+                        ln, i = _rd_varint(b, i)
+                        i += ln
+                    elif w2 == 5:
+                        i += 4
+                    else:
+                        return
+            else:
+                # wt 4 (end-group) at top level, or reserved 6/7: bail out
+                return
+        except (IndexError, ValueError):
+            return
 
 
 @dataclass

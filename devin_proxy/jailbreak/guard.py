@@ -99,9 +99,16 @@ class RefusalGuard:
     def ready_to_release(self) -> bool:
         if self.full:
             return False
-        # The head is scanned once it reaches `window` chars; holding past
-        # that adds latency without extra coverage in non-full mode.
-        return self._checked and not self.is_refusal()
+        if not self._checked:
+            # Early release: every refusal marker this pattern knows opens in
+            # the first few words ("I can't", "No puedo", "Lo siento"). Once we
+            # hold enough head to have seen a refusal opening, stop waiting for
+            # the full window — holding longer only inflates TTFT.
+            if len(self._buf) < min(self.window, 80):
+                return False
+            self._checked = True
+            self._hit = bool(REFUSAL_RE.search(self._buf))
+        return not self._hit
 
     def snippet(self) -> str:
         return self._buf[:200]

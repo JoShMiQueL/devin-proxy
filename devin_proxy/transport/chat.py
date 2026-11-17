@@ -169,7 +169,11 @@ async def chat_stream(client: ConnectClient, api_key: str, jwt: str,
                                          "message": str(err.get("message") or "")[:400],
                                          "blocked": code == "permission_denied"})
             continue
-        for no, _wt, v in fields(payload):
+        try:
+            frame_fields = list(fields(payload))
+        except Exception:
+            continue
+        for no, _wt, v in frame_fields:
             if no == 3:
                 yield ChatEvent("text", v.decode("utf-8", "replace"))
             elif no == 9:
@@ -181,7 +185,10 @@ async def chat_stream(client: ConnectClient, api_key: str, jwt: str,
             elif no == 5:
                 yield ChatEvent("stop", v)
             elif no == 6:
-                tc = {n: x for n, w, x in fields(v)}
+                try:
+                    tc = {n: x for n, w, x in fields(v)}
+                except Exception:
+                    continue
                 def _s(x):
                     return x.decode("utf-8", "replace") if isinstance(x, (bytes, bytearray)) else (x if isinstance(x, str) else "")
                 cid, cname, cargs = _s(tc.get(1)), _s(tc.get(2)), _s(tc.get(3))
@@ -192,7 +199,10 @@ async def chat_stream(client: ConnectClient, api_key: str, jwt: str,
                 else:
                     tool_acc.append(ToolCallAcc("", "", cargs))
             elif no == 7:
-                usage = {n: x for n, w, x in fields(v) if w == 0}
+                try:
+                    usage = {n: x for n, w, x in fields(v) if w == 0}
+                except Exception:
+                    usage = {}
                 yield ChatEvent("usage", usage)
     if tool_acc:
         yield ChatEvent("toolcalls", tool_acc)

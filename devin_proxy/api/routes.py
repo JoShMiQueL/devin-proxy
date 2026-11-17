@@ -182,7 +182,7 @@ def build_app(settings: Settings, auth: Auth, engine: Engine,
             queue: list[dict] = []
 
             def emit(delta: dict):
-                if client_off and "reasoning_content" in delta:
+                if (client_off or not settings.emit_reasoning) and "reasoning_content" in delta:
                     delta = {k: v for k, v in delta.items()
                              if k != "reasoning_content"}
                     if not delta:
@@ -264,7 +264,7 @@ def build_app(settings: Settings, auth: Auth, engine: Engine,
         usage: dict = {}
 
         def emit(delta: dict):
-            if client_off and "reasoning_content" in delta:
+            if (client_off or not settings.emit_reasoning) and "reasoning_content" in delta:
                 return
             chunks.append(delta)
 

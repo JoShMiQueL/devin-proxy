@@ -28,3 +28,33 @@ def test_message_builder():
     out = list(fields(m.body))
     assert (1, 2, b"x") in out
     assert (3, 0, 7) in out
+
+
+def test_fields_tolerates_reserved_wiretype():
+    # field 1 ok, then a bogus tag with wt=6 (reserved) — must not raise,
+    # must yield what was already decoded
+    body = f_str(1, "ok") + bytes([(5 << 3) | 6]) + b"\x00\x00"
+    got = list(fields(body))
+    assert (1, 2, b"ok") in got
+
+
+def test_fields_tolerates_truncated_tail():
+    body = f_str(1, "ok") + bytes([2 << 3 | 2]) + b"\xff\xff\xff\xff\x0f"  # huge len
+    got = list(fields(body))
+    assert (1, 2, b"ok") in got
+
+
+def test_fields_skips_group():
+    # wt=3 start-group (field 4) wrapping a varint, wt=4 end-group — skipped,
+    # following fields still decode
+    group = bytes([(4 << 3) | 3, (1 << 3) | 0, 0x2A, (4 << 3) | 4])
+    body = f_str(1, "pre") + group + f_str(2, "post")
+    got = [(no, wt) for no, wt, _ in fields(body)]
+    assert (1, 2) in got
+    assert (2, 2) in got
+
+
+def test_fields_bad_varint_stops_not_raises():
+    body = f_str(1, "ok") + b"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff"
+    got = list(fields(body))
+    assert (1, 2, b"ok") in got

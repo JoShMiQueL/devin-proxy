@@ -114,6 +114,29 @@ python -m devin_proxy       # listens on 127.0.0.1:8390
 | `POST /v1/web_search` | `GetWebSearchResults` — `{query}` → 5 results |
 | `POST /v1/image_caption` | `GetImageCaption` — `{image: b64, mime}` → caption |
 
+## opencode v2 notes
+
+The proxy works out of the box against opencode v2 (`@ai-sdk/openai-compatible`
+on `http://127.0.0.1:8390/v1` — see `opencode.json`). Two defaults are tuned
+specifically for it; flip them only if a different client needs otherwise:
+
+- **`emit_reasoning=false` (default).** opencode v2 captures the
+  `reasoning_content` delta and **replays it as input inside every later
+  assistant history turn** — dead bytes that grow with the session and skew
+  its token-rate readout, since unsigned thinking never reaches the wire
+  anyway (the proxy's signed-reasoning cache is what carries continuity).
+  With it off, opencode has nothing to replay. Set
+  `DEVIN_PROXY_EMIT_REASONING=1` for clients that *display* reasoning and
+  don't echo it back.
+- **`strip_incoming_reasoning=true` (default).** any client that does echo
+  reasoning gets it stripped before translate, so it never costs prompt
+  tokens upstream.
+- **High `tok/s` readout is cosmetic.** opencode divides the upstream
+  `prompt_tokens` count (whole prompt incl. the proxy's system wrapper +
+  tools + history) by generation time — it's prompt-throughput, not
+  generation speed. It looks huge on long sessions; the figure to watch is
+  TTFT.
+
 ## Models
 
 Two SWE-2 families are routed — these are the only lanes that run free of
@@ -217,6 +240,8 @@ All knobs are `DEVIN_PROXY_*` — full reference:
 |---|---|---|
 | `DEVIN_PROXY_GUARD_CHARS` | `300` | chars buffered for the refusal scan before releasing deltas |
 | `DEVIN_PROXY_GUARD_FULL` | off | buffer whole response for the comply-then-pivot scan |
+| `DEVIN_PROXY_EMIT_REASONING` | `false` | stream `reasoning_content` deltas to the client — off keeps opencode v2 from replaying thinking back as input every turn (the signed cache already preserves continuity); enable for clients that surface reasoning without echoing it |
+| `DEVIN_PROXY_STRIP_INCOMING_REASONING` | `true` | drop unsigned `reasoning_content`/`reasoning` fields from incoming history — dead bytes that never reach the wire |
 | `DEVIN_PROXY_PLAN_PREAMBLE` | off | inject "state intent before tool calls" system directive |
 | `DEVIN_PROXY_MAX_RETRIES` | `3` | refusal-guard retry attempts |
 | `DEVIN_PROXY_RETRY_TEMPS` | `0.85,1.0,1.1` | temperature ladder across retries |
