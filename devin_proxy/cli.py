@@ -60,6 +60,75 @@ def _update_notice() -> str:
         return ""
 
 
+def cmd_supervise(args) -> int:
+    """Run serve under a respawn loop — the service watchdog.
+
+    The `service` subsystem launches THIS, not `serve` directly. The
+    supervisor's job: spawn the real `serve` child, wait() on it, and
+    relaunch it if it ever exits. A bare serve dying left the port
+    unbound until something manually restarted it — the ECONNREFUSED the
+    client saw. Respawning keeps the port gap under ~1s.
+
+    Stops when killed (SIGTERM / taskkill /T takes the whole tree) or
+    when the child exits with code 0 cleanly (a deliberate shutdown).
+    """
+    import logging
+    import subprocess
+    import sys
+    import time
+
+    logging.basicConfig(level=logging.INFO,
+                        format="[devin-proxy supervisor] %(message)s")
+    log = logging.getLogger("devin-proxy.supervisor")
+
+    host = getattr(args, "host", None) or "127.0.0.1"
+    port = getattr(args, "port", None) or 8390
+    name = getattr(args, "name", DEFAULT_NAME)
+
+    child_cmd = [sys.executable, "-m", "devin_proxy", "serve",
+                 "-H", str(host), "-p", str(port), "--no-autostart"]
+    kw: dict = {}
+    if os.name == "nt":
+        kw["creationflags"] = subprocess.CREATE_NO_WINDOW
+
+    # Give up respawning after this many consecutive immediate failures —
+    # a misconfigured install would otherwise spin the CPU forever.
+    MAX_FAST_FAILURES = 5
+    backoff, fast_fails, child = 0.5, 0, None
+    log.info("supervising %s -> %s (name=%s)", " ".join(child_cmd[3:]),
+             f"{host}:{port}", name)
+    try:
+        while True:
+            try:
+                child = subprocess.Popen(child_cmd, **kw)
+            except Exception as e:
+                log.error("spawn failed: %s", e)
+                fast_fails += 1
+                if fast_fails >= MAX_FAST_FAILURES:
+                    return 1
+                time.sleep(backoff)
+                backoff = min(backoff * 2, 30)
+                continue
+            try:
+                rc = child.wait()
+            except KeyboardInterrupt:
+                log.info("supervisor interrupted — stopping child")
+                child.terminate()
+                return 0
+            if rc == 0:
+                log.info("child exited cleanly — not respawning")
+                return 0
+            fast_fails = 0
+            backoff = 0.5
+            log.warning("child exited rc=%s — respawning in %.1fs",
+                        rc, backoff)
+            time.sleep(backoff)
+            backoff = min(backoff * 2, 30)
+    finally:
+        if child and child.poll() is None:
+            child.terminate()
+
+
 def cmd_serve(args) -> int:
     """Foreground serve — but first ensure a registered background instance
     exists so other tooling can attach. The spawned one is announced."""
@@ -487,12 +556,21 @@ def cmd_update(args) -> int:
     if tag == __version__ and not args.dev:
         print(f"already at {__version__} (latest)")
         return 0
-    stopped = _stop_services()
+    # NOTE: we no longer stop/restart running services automatically.
+    # The old behavior killed the serve mid-request (opencode saw
+    # ECONNREFUSED) and bounced the process during install. Now the wheel
+    # installs in place; a running service keeps serving the OLD code
+    # until the user runs `devin-proxy service restart` — restart on your
+    # own terms, never mid-stream. pip uninstall-path (non-wheel fallback)
+    # is the only case that still needs the services stopped first, and
+    # the supervisor respawn guards against that leaving the port dead.
+    stopped: list = []
     rc = 0
     try:
         if args.dev:
             spec = f"git+https://github.com/{REPO}@main"
             print(f"installing {spec}")
+            stopped = _stop_services()
             rc = subprocess.run(
                 [sys.executable, "-m", "pip", "install", "-U", spec]
             ).returncode
@@ -511,13 +589,22 @@ def cmd_update(args) -> int:
                 tgt = install_wheel(wheel, tag)
                 print(f"installed {tag} -> {tgt}")
             else:
+                # pip path DOES need the services down (uninstall trips on
+                # the locked exe on Windows) — stop them, install, then the
+                # supervisor brings them back on the next section.
+                stopped = _stop_services()
                 spec = f"git+https://github.com/{REPO}@{rel['tag_name']}"
                 print(f"installing {spec}")
                 rc = subprocess.run(
                     [sys.executable, "-m", "pip", "install", "-U", spec]
                 ).returncode
     finally:
-        _start_services(stopped)
+        if stopped:
+            _start_services(stopped)
+        if rc == 0:
+            print("\nnew code installed. A running service still serves "
+                  "the old build — restart it when ready:")
+            print("  devin-proxy service restart")
     return rc
 
 
@@ -535,6 +622,14 @@ def main(argv: list[str] | None = None) -> int:
     sp.add_argument("--no-autostart", action="store_true",
                     help="don't auto-start the background service first")
     sp.set_defaults(fn=cmd_serve)
+
+    sup = sub.add_parser("supervise",
+                         help="internal: service watchdog — respawns serve "
+                              "if the child process dies (used by `service`)")
+    sup.add_argument("-H", "--host", default=None)
+    sup.add_argument("-p", "--port", type=int, default=None)
+    sup.add_argument("--name", default=DEFAULT_NAME)
+    sup.set_defaults(fn=cmd_supervise)
 
     svc = sub.add_parser("service",
                          help="manage background instances")

@@ -181,10 +181,14 @@ def start(name: str = DEFAULT_NAME, host: str | None = None,
 
     REG_DIR.mkdir(parents=True, exist_ok=True)
     log = open(REG_DIR / f"{name}.log", "ab")  # noqa: SIM115 — kept alive by
-    # --no-autostart: the spawned process IS the service — without this
-    # its own serve-autostart would recursively spawn grandchildren.
-    cmd = [sys.executable, "-m", "devin_proxy", "serve",
-           "-H", host, "-p", str(port), "--no-autostart"]
+    # The spawned process is the SUPERVISOR (`devin_proxy supervise`), not
+    # `serve` itself. The supervisor owns respawning the real serve child
+    # whenever it dies — a bare `serve` leaving the port unbound is what
+    # produced the client-visible ECONNREFUSED gaps. Its job is simple:
+    # spawn serve, wait() on it, restart it if it exits (with a small
+    # backoff so a crash-loop doesn't spin the CPU).
+    cmd = [sys.executable, "-m", "devin_proxy", "supervise",
+           "-H", host, "-p", str(port), "--name", name]
     kw: dict = {}
     if os.name == "nt":
         # console-free + detached — survives the parent shell closing, but
