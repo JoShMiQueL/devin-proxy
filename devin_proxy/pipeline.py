@@ -389,10 +389,17 @@ class Engine:
         temperature = data.temperature if data.temperature is not None else 0.4
         stop = data.stop if isinstance(data.stop, list) else ([data.stop] if data.stop else [])
         dev_attempts = 1 + s.max_retries + max(0, len(tool_variants) - 1)
+        empty_retry = False
         for attempt in range(dev_attempts):
             final = attempt == dev_attempts - 1
             frame = suffix = None
-            if attempt == 0 and tools and force_tool:
+            if empty_retry:
+                # last upstream stream closed with zero content — resample
+                # clean: same base prompt, next temp rung, no refusal
+                # amplifier (it exists to re-frame a model refusal, and it
+                # can't fix a transport-side empty).
+                pass
+            elif attempt == 0 and tools and force_tool:
                 suffix = ("CRITICAL: this request needs a tool. Emit exactly ONE "
                           "tool call now, using the provided tool interface — no "
                           "plan, no announcement, no prose." if native else
@@ -421,7 +428,7 @@ class Engine:
             # terms plus a short user "proceed" sit before the real ask; the
             # frame itself lands mid-history right before the last user turn.
             attempt_msgs = messages
-            if attempt > 0 and not tools:
+            if attempt > 0 and not tools and not empty_retry:
                 if lang == "es":
                     agreed = ("Entendido — continúo con el plan acordado. "
                               "El alcance fijado arriba sigue vigente; "
@@ -446,6 +453,17 @@ class Engine:
                 service_tier=data.service_tier,
                 json_mode=bool(json_directive), client_off=client_off)
 
+            if result.outcome == "empty":
+                # Upstream emitted a bare status stream and closed — a
+                # transport-side failure, not a model refusal. Resample clean
+                # on the next iteration: empty_retry skips the amplifier.
+                empty_retry = True
+                log.info("attempt %d/%d empty stream from upstream "
+                         "(frames=%s) — resampling",
+                         attempt + 1, dev_attempts,
+                         result.meta.get("frames", "?"))
+                continue
+            empty_retry = False
             if result.outcome == "refused":
                 log.info("attempt %d/%d refused (text=%dc think=%dc frames=%s kind=%s)",
                          attempt + 1, dev_attempts, len(result.text),
@@ -588,12 +606,16 @@ class Engine:
                     return AttemptResult("error", text, think, meta)
         except ConnectError as e:
             if not released and not final:
-                return AttemptResult("refused", text, think)
+                return AttemptResult("empty" if not text and not think
+                                     else "refused", text, think,
+                                     {"frames": n_frames})
             meta["error"] = f"{e.code}: {e.message}"
             return AttemptResult("error", text, think, meta)
         except Exception as e:
             if not released and not final:
-                return AttemptResult("refused", text, think)
+                return AttemptResult("empty" if not text and not think
+                                     else "refused", text, think,
+                                     {"frames": n_frames})
             meta["error"] = f"{type(e).__name__}: {e}"
             return AttemptResult("error", text, think, meta)
 
@@ -611,6 +633,13 @@ class Engine:
         if not released and not text.strip():
             meta["frames"] = n_frames
             if not final:
+                # Stream closed with zero content: not a refusal — upstream
+                # emitted only status frames and bailed. The "agreed-plan"
+                # escalation prompt doesn't fix a transport-side empty; we
+                # mark it so the retry loop resamples fast without the
+                # refusal amplifier frames.
+                if not think and not meta.get("native_calls"):
+                    return AttemptResult("empty", text, think, meta)
                 return AttemptResult("refused", text, think, meta)
             note = (f"[devin-proxy] upstream returned reasoning without an "
                     f"answer (think={len(think)}c) — nothing to deliver. "
