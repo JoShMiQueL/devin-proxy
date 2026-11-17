@@ -136,6 +136,13 @@ specifically for it; flip them only if a different client needs otherwise:
   tools + history) by generation time — it's prompt-throughput, not
   generation speed. It looks huge on long sessions; the figure to watch is
   TTFT.
+- **`max_input_tokens` (default 240000).** opencode accretes a large system
+  prompt plus a long tool-result history; near the lane's 255k window the
+  upstream stops emitting and the refusal guard burns retries on empty
+  streams. The proxy estimates input tokens (~4 chars/token) and drops the
+  oldest history turns — keeping the system lead and the newest
+  `prune_keep_turns` — before the wire sees the oversized request. Tune
+  `DEVIN_PROXY_PRUNE_KEEP_TURNS` to keep more/fewer recent turns.
 
 ## Models
 
@@ -249,6 +256,8 @@ All knobs are `DEVIN_PROXY_*` — full reference:
 | `DEVIN_PROXY_NATIVE_TOOLS` | `true` | advertise tools natively vs rendered-in-prompt fallback |
 | `DEVIN_PROXY_IMG_MAX_BYTES` | `12582912` | max image payload size accepted from clients |
 | `DEVIN_PROXY_KEEP_CLIENT_SYSTEM` | off | keep client `system` messages alongside the override |
+| `DEVIN_PROXY_MAX_INPUT_TOKENS` | `240000` | est. input-token ceiling — over it the oldest history turns are dropped (system + recent tail kept); `0` disables. Guards against upstream returning empty streams on oversized prompts |
+| `DEVIN_PROXY_PRUNE_KEEP_TURNS` | `12` | newest messages always kept when pruning |
 
 **Override + testing**
 

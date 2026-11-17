@@ -158,6 +158,10 @@ message.
   enough to have seen a refusal opening (~80c or `guard_chars`, whichever is
   smaller) — every REFUSAL_RE marker opens in the first few words. Holding to
   the full window only inflates TTFT; `guard_full` covers comply-then-pivot.
+- Input pruning: near the 255k-token lane window the upstream stops emitting
+  (empty stream -> phantom "refused" -> retries). `_prune_history` estimates
+  input tokens (~4c/tok) and drops oldest history turns, keeping the system
+  lead + newest `prune_keep_turns`; `max_input_tokens=0` disables.
 - Tool defs ride field 10 (`ChatToolDefinition`: 1=name, 2=desc, 3=schema-json,
   12=strict). The model answers with field 6 `deltaToolCalls` (id/name once,
   then `argumentsJson` fragments). `tool_choice`: field 12 -> `f_str(2, fname)`

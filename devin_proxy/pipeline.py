@@ -136,6 +136,66 @@ class Engine:
     async def aclose(self):
         await self._wire.aclose()
 
+    @staticmethod
+    def _est_tokens(msgs, tools) -> int:
+        """Rough input-token estimate (~4 chars/token) across messages + tools."""
+        n = 0
+        for m in msgs:
+            c = m.get("content")
+            if isinstance(c, str):
+                n += len(c)
+            elif isinstance(c, list):
+                n += sum(len(str(p.get("text", ""))) for p in c
+                         if isinstance(p, dict))
+            for k in ("reasoning_content", "reasoning", "thinking"):
+                v = m.get(k)
+                if isinstance(v, str):
+                    n += len(v)
+            for c_ in m.get("tool_calls") or ():
+                fn = (c_ or {}).get("function") or {}
+                n += len(str(fn.get("arguments", ""))) + len(str(fn.get("name", "")))
+        for t in tools or ():
+            fn = t.function
+            n += len(fn.name or "") + len(fn.description or "")
+            n += len(json.dumps(fn.parameters or {}, ensure_ascii=False))
+        return n // 4
+
+    def _prune_history(self, msgs, tools, s) -> tuple[list, int]:
+        """Drop oldest history turns so estimated input stays under
+        max_input_tokens. Returns (messages, dropped_count).
+
+        Keeps every leading system message and the newest `prune_keep_turns`
+        tail; drops from the middle (oldest first) so the live task, its
+        recent context and the tool-result thread survive. If the leading
+        system + tail alone already exceed budget we still keep them — an
+        undersized request beats an empty one.
+        """
+        n = len(msgs)
+        if not s.max_input_tokens or n <= s.prune_keep_turns + 1:
+            return msgs, 0
+        if self._est_tokens(msgs, tools) <= s.max_input_tokens:
+            return msgs, 0
+        head = [m for m in msgs if m.get("role") == "system"]
+        body = [m for m in msgs if m.get("role") != "system"]
+        # always keep the newest prune_keep_turns; grow the tail while under budget
+        tail_min = min(s.prune_keep_turns, len(body))
+        head_est = self._est_tokens(head, tools)
+        budget = s.max_input_tokens - head_est
+        acc = 0
+        keep_tail = 0
+        for m in reversed(body):
+            c = m.get("content")
+            est = (len(c) if isinstance(c, str) else (
+                sum(len(str(p.get("text", ""))) for p in c
+                    if isinstance(p, dict)) if isinstance(c, list) else 0)) // 4
+            if keep_tail >= tail_min and acc + est > budget:
+                break
+            acc += est
+            keep_tail += 1
+        tail = body[len(body) - keep_tail:]
+        dropped = len(body) - keep_tail
+        return [*head, *tail], dropped
+
     async def run(self, data, emit: Callable[[dict], None],
                   finish: Callable[[dict | None], None],
                   usage_emit: Callable[[dict], None]) -> None:
@@ -168,6 +228,11 @@ class Engine:
         messages, artifact_stats = sanitize_history_artifacts(messages)
         messages, dropped_after = sanitize_messages(messages)
         dropped_empty += dropped_after
+
+        messages, dropped_pruned = self._prune_history(messages, data.tools, s)
+        if dropped_pruned:
+            log.info("context prune: dropped %d history msgs (est over %d tok)",
+                     dropped_pruned, s.max_input_tokens)
 
         tools = [] if (data.tool_choice == "none") else (data.tools or [])
         native = bool(tools) and s.native_tools

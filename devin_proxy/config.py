@@ -67,6 +67,17 @@ class Settings(BaseSettings):
     img_max_bytes: int = 12 * 1024 * 1024
     keep_client_system: bool = False
 
+    # Input-context guard. opencode v2 accretes a giant system prompt plus a
+    # long multi-turn history (tool results included); past the lane's window
+    # the upstream silently returns empty streams that the refusal guard then
+    # burns retries on. We estimate input tokens (~4 chars/token) and, when
+    # over budget, drop the oldest history turns — keeping the system lead,
+    # the tool declarations and the most recent exchanges — before the wire
+    # ever sees the oversized request. 0 disables pruning.
+    max_input_tokens: int = 240000
+    # how many trailing turns to always keep when pruning history
+    prune_keep_turns: int = 12
+
     # model allowlist: base SWE-2 lanes + the Flash family — the lanes that
     # run free of credit charge on Pro+ plans. Every other catalog uid
     # (Claude/GPT/Gemini/Grok/Kimi/GLM/... and the swe-2 *-lightning
