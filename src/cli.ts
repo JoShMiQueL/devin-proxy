@@ -9,6 +9,8 @@
 import { loadSettings } from "./config.js"
 import { serve } from "./server.js"
 
+const PKG_VERSION = "0.1.1"
+
 const USAGE = `devin-proxy — OpenAI-compatible proxy over the Devin backend
 
 Usage:
@@ -26,8 +28,7 @@ async function main(argv: string[]): Promise<number> {
   }
 
   if (cmd === "version" || cmd === "--version" || cmd === "-V") {
-    const { version } = await import("../package.json", { with: { type: "json" } }).catch(() => ({ version: "0.1.0" }))
-    console.log(version)
+    console.log(PKG_VERSION)
     return 0
   }
   if (cmd === "help" || cmd === "--help" || cmd === "-h") {

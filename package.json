@@ -1,6 +1,6 @@
 {
   "name": "devin-proxy",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "OpenAI-compatible local proxy over the Devin/Cascade backend â€” SWE-2/SWE-2.1 lanes through the guarded-retry devin-engine",
   "type": "module",
   "bin": {
@@ -15,7 +15,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
