@@ -9,12 +9,12 @@
 import { loadSettings } from "./config.js"
 import { serve } from "./server.js"
 
-const PKG_VERSION = "0.1.1"
+const PKG_VERSION = "0.2.0"
 
 const USAGE = `devin-proxy — OpenAI-compatible proxy over the Devin backend
 
 Usage:
-  devin-proxy serve [--host H] [--port P] [--backend URL]
+  devin-proxy serve [--host H] [--port P] [--backend URL] [--mode normal|uncensored]
   devin-proxy login [--api-key TOKEN]   # PKCE browser flow, or write token
   devin-proxy version
 `
@@ -62,6 +62,7 @@ async function main(argv: string[]): Promise<number> {
       ...(flag("host") ? { host: flag("host") } : {}),
       ...(flag("port") ? { port: parseInt(flag("port")!, 10) } : {}),
       ...(flag("backend") ? { backend: flag("backend") } : {}),
+      ...(flag("mode") ? { mode: flag("mode") === "uncensored" ? "uncensored" : "normal" } : {}),
     })
     await serve(settings)
     // Block forever — the server keeps the event loop alive; exiting main

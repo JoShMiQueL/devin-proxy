@@ -64,6 +64,10 @@ export interface Settings {
   port: number
   backend: string
   clientVersion: string
+  /** "normal" = vanilla passthrough (default). "uncensored" = override +
+   * refusal guard + retry pipeline. Toggle via DEVIN_PROXY_MODE,
+   * settings.toml `mode`, or `--mode`. */
+  mode: "normal" | "uncensored"
   emitReasoning: boolean
   stripIncomingReasoning: boolean
   guardChars: number
@@ -89,6 +93,7 @@ const DEFAULTS: Settings = {
   port: 8390,
   backend: "https://server.codeium.com",
   clientVersion: "auto",
+  mode: "normal",
   emitReasoning: false,
   stripIncomingReasoning: true,
   guardChars: 300,
@@ -127,6 +132,7 @@ export function loadSettings(overrides: Partial<Settings> = {}): Settings {
   pick("port", "PORT", (v) => parseInt(v, 10))
   pick("backend", "BACKEND", (v) => v.replace(/\/+$/, ""))
   pick("clientVersion", "CLIENT_VERSION", (v) => v)
+  pick("mode", "MODE", (v) => (v.toLowerCase() === "uncensored" ? "uncensored" : "normal"))
   pick("emitReasoning", "EMIT_REASONING", (v) => v === "true" || v === "1")
   pick("stripIncomingReasoning", "STRIP_INCOMING_REASONING", (v) => v !== "false" && v !== "0")
   pick("guardChars", "GUARD_CHARS", (v) => parseInt(v, 10))

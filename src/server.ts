@@ -118,6 +118,7 @@ export function buildApp(settings: Settings, auth: Auth, engine: Engine, overrid
 
   const healthHandler = () => ({
     status: "ok",
+    mode: settings.mode,
     backend: settings.backend,
     override_file: override.path,
     override_chars: override.load().length,
@@ -289,6 +290,7 @@ export async function serve(settings: Settings): Promise<ServeHandle> {
   const override = new OverridePrompt(resolveSystemFile(settings.systemFile))
   const engineSettings: EngineSettings = {
     backend: settings.backend,
+    mode: settings.mode,
     guardChars: settings.guardChars,
     guardFull: settings.guardFull,
     maxRetries: settings.maxRetries,
@@ -327,7 +329,9 @@ export async function serve(settings: Settings): Promise<ServeHandle> {
   })
   log(
     `listening on ${settings.host}:${settings.port} -> ${settings.backend} ` +
-      `(allowed=${settings.allowedModels.join(",")}${settings.allowPaid ? "+paid" : ""}) override=${override.load().length}c`,
+      `mode=${settings.mode} ` +
+      `(allowed=${settings.allowedModels.join(",")}${settings.allowPaid ? "+paid" : ""})` +
+      (settings.mode === "uncensored" ? ` override=${override.load().length}c` : ""),
   )
   try {
     auth.apiKey()

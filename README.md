@@ -4,6 +4,25 @@ An **OpenAI-compatible local proxy** that serves the Devin/Cascade backend's SWE
 
 TypeScript port of the Python `devin-proxy`. Sits on [`devin-core`](../devin-core) (wire + auth + catalog) and [`devin-engine`](../devin-engine) (guard, override, retry, sanitize, resolve).
 
+## Modes
+
+- **`normal`** (default) — vanilla passthrough: history sanitize + model
+  resolve, then a single upstream attempt streamed back. No system
+  override, no refusal guard, no retry frames.
+- **`uncensored`** — the full guarded-retry pipeline described below:
+  override injection, refusal guard, escalated resampling.
+
+Enable it any of these ways:
+
+```bash
+devin-proxy serve --mode uncensored
+DEVIN_PROXY_MODE=uncensored devin-proxy serve
+# ~/.devin-proxy/settings.toml
+[devin_proxy]
+mode = "uncensored"
+```
+
+
 ## Run
 
 ```bash
@@ -46,11 +65,11 @@ Point `ANTHROPIC_BASE_URL`/`OPENAI_BASE_URL`, Cursor, aider, continue.dev, Cline
 
 ## Settings
 
-Env `DEVIN_PROXY_*`, `~/.devin-proxy/settings.toml` `[devin_proxy]`, or flags. Notables: `ALLOW_PAID`, `ALLOWED_MODELS` (CSV), `GUARD_CHARS`, `GUARD_FULL`, `MAX_RETRIES`, `EMIT_REASONING`, `MAX_INPUT_TOKENS`, `SYSTEM_FILE` (`es`/`english`/`spanish` picks a bundled override).
+Env `DEVIN_PROXY_*`, `~/.devin-proxy/settings.toml` `[devin_proxy]`, or flags. Notables: `MODE` (`normal`/`uncensored`), `ALLOW_PAID`, `ALLOWED_MODELS` (CSV), `GUARD_CHARS`, `GUARD_FULL`, `MAX_RETRIES`, `EMIT_REASONING`, `MAX_INPUT_TOKENS`, `SYSTEM_FILE` (`es`/`english`/`spanish` picks a bundled override).
 
 ## What the engine does per request
 
-Sanitize history → inject the system override → resolve model → stream upstream → hold the first N chars behind a multilingual refusal guard → on a refusal, resample inside the same downstream stream with an escalated frame (invisible to the client) → translate tool calls back to OpenAI shape. See [devin-engine](../devin-engine).
+In `uncensored` mode: sanitize history → inject the system override → resolve model → stream upstream → hold the first N chars behind a multilingual refusal guard → on a refusal, resample inside the same downstream stream with an escalated frame (invisible to the client) → translate tool calls back to OpenAI shape. See [devin-engine](../devin-engine).
 
 ## Ecosystem
 
