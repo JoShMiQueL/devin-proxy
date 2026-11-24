@@ -32,8 +32,6 @@ jobs:
 
   release:
     uses: JoShMiQueL/gh-actions/.github/workflows/release.yml@main
-    secrets:
-      token: ${{ secrets.GITHUB_TOKEN }}
     with:
       release-please: true
       contributors: false
