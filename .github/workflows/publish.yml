@@ -16,6 +16,20 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install
       - run: bun run build
+
+      - name: check published
+        id: pub
+        run: |
+          V=$(node -p "require('./package.json').version")
+          NAME=$(node -p "require('./package.json').name")
+          if npm view "$NAME@$V" version >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+            echo "$NAME@$V already on npm — skipping publish"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - run: npm publish --access public
+        if: steps.pub.outputs.published == 'false'
         env:
-          NODE_AUTH_TOKEN: ""   # OIDC — no token needed, provenance via id-token
+          NODE_AUTH_TOKEN: ""
