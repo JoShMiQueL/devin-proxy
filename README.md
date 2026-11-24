@@ -51,3 +51,17 @@ Env `DEVIN_PROXY_*`, `~/.devin-proxy/settings.toml` `[devin_proxy]`, or flags. N
 ## What the engine does per request
 
 Sanitize history → inject the system override → resolve model → stream upstream → hold the first N chars behind a multilingual refusal guard → on a refusal, resample inside the same downstream stream with an escalated frame (invisible to the client) → translate tool calls back to OpenAI shape. See [devin-engine](../devin-engine).
+
+## Ecosystem
+
+| Package | Role |
+| --- | --- |
+| `devin-core` | wire + auth + catalog |
+| `devin-engine` | guarded-retry pipeline — the Engine this proxy wraps |
+| **`devin-proxy`** (this) | standalone OpenAI-compatible proxy |
+| `devin-proxy-py` | Python original — reference |
+| `opencode-devin` | OpenCode v2 plugin |
+| `claude-devin` | Claude-compatible surface |
+
+Publish: `git tag v* && git push --tags` — OIDC Trusted Publishing
+workflow, no token.
