@@ -100,3 +100,18 @@ is stable, and `contract.json` catches upstream changes in CI.
 - `devin-proxy` — now the TypeScript proxy (was the Python repo).
   Python moved to `devin-proxy-py` (reference, kept green).
 - npm: `devin-proxy` publishes the TS package.
+
+## CI / release standard (all repos)
+
+Same 4 workflows in every package (opencode-devin is the reference):
+
+| Workflow | Trigger | Job |
+| --- | --- | --- |
+| `ci.yml` | push main/master + PRs | typecheck → build → test on ubuntu/windows/macos |
+| `release-please.yml` | push main/master | opens/updates the release PR, tags + GH Release on merge |
+| `pr-title.yml` | PR opened/edited | enforces Conventional Commits on the squash title |
+| `publish.yml` | `v*` tag / `release: published` / dispatch | verify tag==pkg.version → test → OIDC `npm publish --provenance`, skips if already on npm |
+
+`devin-proxy-py` and `claude-devin` keep their own flows (Python release,
+GitFlow develop→main). Dependabot only where the lockfile is supported —
+bun.lock isn't, so npm ecosystems were dropped.
