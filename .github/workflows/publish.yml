@@ -1,0 +1,21 @@
+name: publish
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # OIDC for npm Trusted Publishing
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install
+      - run: bun run build
+      - run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ""   # OIDC — no token needed, provenance via id-token
