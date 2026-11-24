@@ -6,8 +6,8 @@
  * PKCE flow).
  */
 
-import { loadSettings } from "./config"
-import { serve } from "./server"
+import { loadSettings } from "./config.js"
+import { serve } from "./server.js"
 
 const USAGE = `devin-proxy — OpenAI-compatible proxy over the Devin backend
 
@@ -36,7 +36,7 @@ async function main(argv: string[]): Promise<number> {
   }
   if (cmd === "login") {
     const apiKey = flag("api-key")
-    const { Auth, writeCredentials, defaultCredentialsPath } = await import("./auth")
+    const { Auth, writeCredentials, defaultCredentialsPath } = await import("./auth.js")
     if (apiKey) {
       writeCredentials(defaultCredentialsPath(), apiKey)
       console.log(`credentials written to ${defaultCredentialsPath()}`)

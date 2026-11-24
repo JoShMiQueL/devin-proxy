@@ -12,7 +12,7 @@
 
 import { encodeMessage, encodeString, iterFields } from "devin-core"
 import { randomUUID } from "node:crypto"
-import { CHANNEL, FALLBACK_VERSION } from "./config"
+import { CHANNEL, FALLBACK_VERSION } from "./config.js"
 
 const CFG_PATH = "/exa.api_server_pb.ApiServerService/GetCliModelConfigs"
 
@@ -85,6 +85,58 @@ function parseCfg(b: Buffer): CliModelConfig | null {
     uid, name, context, credits, expiresAt, promo, aliases,
     expiryIso: () => (expiresAt ? new Date(expiresAt * 1000).toISOString().slice(0, 10) : ""),
   }
+}
+
+const CAPTION_PATH = "/exa.api_server_pb.ApiServerService/GetImageCaption"
+const WS_PATH = "/exa.api_server_pb.ApiServerService/GetWebSearchResults"
+
+async function unary(base: string, path: string, body: Buffer, timeoutMs: number): Promise<Buffer> {
+  const res = await fetch(`${base}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/proto", "Connect-Protocol-Version": "1" },
+    body: new Uint8Array(body),
+    signal: AbortSignal.timeout(timeoutMs),
+  })
+  if (!res.ok) throw new Error(`${path} HTTP ${res.status}`)
+  return Buffer.from(await res.arrayBuffer())
+}
+
+/** GetImageCaption: base64 image -> caption text. Ported from transport/caption.py. */
+export async function imageCaption(
+  base: string, apiKey: string, jwt: string,
+  imageB64: string, mime = "image/png", clientVersion = "", timeoutMs = 30_000,
+): Promise<string> {
+  const img = Buffer.concat([encodeString(1, imageB64), encodeString(2, mime)])
+  const body = Buffer.concat([encodeMessage(1, metadata(apiKey, jwt, clientVersion)), encodeMessage(2, img)])
+  const raw = await unary(base, CAPTION_PATH, body, timeoutMs)
+  for (const f of iterFields(raw)) {
+    if (f.num === 1 && f.wire === 2 && Buffer.isBuffer(f.value)) return f.value.toString("utf8")
+  }
+  return ""
+}
+
+/** GetWebSearchResults: query -> [{id,url,title,content}]. Ported from transport/websearch.py. */
+export async function webSearch(
+  base: string, apiKey: string, jwt: string, query: string,
+  clientVersion = "", timeoutMs = 30_000,
+): Promise<Array<Record<string, string>>> {
+  const body = Buffer.concat([encodeMessage(1, metadata(apiKey, jwt, clientVersion)), encodeString(2, query)])
+  const raw = await unary(base, WS_PATH, body, timeoutMs)
+  const results: Array<Record<string, string>> = []
+  for (const f of iterFields(raw)) {
+    if (f.num !== 1 || f.wire !== 2 || !Buffer.isBuffer(f.value)) continue
+    const item: Record<string, string> = {}
+    for (const p of iterFields(f.value)) {
+      if (p.wire !== 2 || !Buffer.isBuffer(p.value)) continue
+      const s = p.value.toString("utf8")
+      if (p.num === 1) item.id = s
+      else if (p.num === 3) item.url = s
+      else if (p.num === 4) item.title = s
+      else if (p.num === 7) item.content = s
+    }
+    if (Object.keys(item).length) results.push(item)
+  }
+  return results
 }
 
 /** GetCliModelConfigs -> Map<uid, config>, or null on failure. */

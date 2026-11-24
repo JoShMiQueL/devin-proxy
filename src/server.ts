@@ -11,9 +11,9 @@
 import { createServer, type Server, type IncomingMessage, type ServerResponse } from "node:http"
 import { randomUUID } from "node:crypto"
 import { Engine, OverridePrompt, type EngineSettings } from "devin-engine"
-import type { Auth } from "./auth"
-import type { CliModelConfig } from "./catalog"
-import type { Settings } from "./config"
+import type { Auth } from "./auth.js"
+import type { CliModelConfig } from "./catalog.js"
+import type { Settings } from "./config.js"
 
 const log = (...args: unknown[]) => console.log(`[devin-proxy]`, ...args)
 const logWarn = (...args: unknown[]) => console.warn(`[devin-proxy]`, ...args)
@@ -232,11 +232,31 @@ export function buildApp(settings: Settings, auth: Auth, engine: Engine, overrid
       if (req.method === "GET" && (path === "/v1/models" || path === "/models")) return json(res, 200, modelsHandler())
       if (req.method === "POST" && path === "/v1/chat/completions") return await chatHandler(req, res)
       if (req.method === "POST" && path === "/v1/image_caption") {
-        // upstream caption RPC — not in core yet; stub 501 until ported
-        return json(res, 501, { error: { message: "image_caption not yet ported", type: "not_implemented" } })
+        const body = JSON.parse(await readBody(req)) as Record<string, unknown>
+        const b64 = String(body.image ?? body.data ?? "")
+        const mime = String(body.mime ?? "image/png")
+        if (!b64) return json(res, 400, { error: { message: "missing image", type: "invalid_request" } })
+        try {
+          const { imageCaption } = await import("./catalog.js")
+          const caption = await imageCaption(settings.backend, auth.apiKey(), await auth.jwt(), b64, mime, settings.clientVersion)
+          return json(res, 200, { caption })
+        } catch (e) {
+          logWarn("image caption failed:", e)
+          return json(res, 502, { error: { message: (e as Error).message, type: "server_error" } })
+        }
       }
       if (req.method === "POST" && path === "/v1/web_search") {
-        return json(res, 501, { error: { message: "web_search not yet ported", type: "not_implemented" } })
+        const body = JSON.parse(await readBody(req)) as Record<string, unknown>
+        const query = String(body.query ?? body.q ?? "").trim()
+        if (!query) return json(res, 400, { error: { message: "missing query", type: "invalid_request" } })
+        try {
+          const { webSearch } = await import("./catalog.js")
+          const results = await webSearch(settings.backend, auth.apiKey(), await auth.jwt(), query, settings.clientVersion)
+          return json(res, 200, { object: "list", data: results })
+        } catch (e) {
+          logWarn("web search failed:", e)
+          return json(res, 502, { error: { message: (e as Error).message, type: "server_error" } })
+        }
       }
       return json(res, 404, { error: { message: "not found", type: "invalid_request" } })
     } catch (e) {
@@ -261,8 +281,8 @@ export interface ServeHandle {
 
 /** settings -> auth -> engine -> http server. Ported from server.py::serve. */
 export async function serve(settings: Settings): Promise<ServeHandle> {
-  const { fetchCliCatalog } = await import("./catalog")
-  const { Auth } = await import("./auth")
+  const { fetchCliCatalog } = await import("./catalog.js")
+  const { Auth } = await import("./auth.js")
   const { resolveSystemFile } = await import("devin-engine")
 
   const auth = new Auth(settings.backend)

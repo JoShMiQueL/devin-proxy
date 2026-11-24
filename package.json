@@ -1,7 +1,7 @@
 {
   "name": "devin-proxy",
   "version": "0.1.0",
-  "description": "OpenAI-compatible local proxy over the Devin/Cascade backend — SWE-2/SWE-2.1 lanes through the guarded-retry devin-engine",
+  "description": "OpenAI-compatible local proxy over the Devin/Cascade backend â€” SWE-2/SWE-2.1 lanes through the guarded-retry devin-engine",
   "type": "module",
   "bin": {
     "devin-proxy": "./dist/cli.js"
@@ -41,8 +41,8 @@
     "url": "git+https://github.com/JoShMiQueL/devin-proxy.git"
   },
   "dependencies": {
-    "devin-core": "file:../devin-core",
-    "devin-engine": "file:../devin-engine"
+    "devin-core": "^0.0.3",
+    "devin-engine": "^0.0.3"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",

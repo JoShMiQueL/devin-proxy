@@ -5,8 +5,8 @@
     "": {
       "name": "devin-proxy",
       "dependencies": {
-        "devin-core": "file:../devin-core",
-        "devin-engine": "file:../devin-engine",
+        "devin-core": "^0.0.3",
+        "devin-engine": "^0.0.3",
       },
       "devDependencies": {
         "@types/bun": "^1.4.4",
@@ -62,14 +62,12 @@
 
     "bun-types": ["bun-types@1.4.5", "", { "dependencies": { "@types/node": "*", "undici-types": "*" } }, "sha512-ECHn+9dhL3wv0G6u0+7dQvrnaimXiRDxxerYBmhTaLyJEEuvTPWk2Fye3XIf5Y++JIIiHKfQw4Z7V5D8KuiXbg=="],
 
-    "devin-core": ["devin-core@file:../devin-core", { "devDependencies": { "@types/bun": "^1.4.4", "@types/node": "^26.6.7", "typescript": "^7.0.2" }, "hasInstallScript": true }],
+    "devin-core": ["devin-core@0.0.3", "", {}, "sha512-r7E67F5lcfgoBgVWsHQBl0N4f5eMMBs5LVnbzg5DKPxnfxWxUJ5wD48zUifX3qyKvIAc7ljNejJV4RnOAlPUhw=="],
 
-    "devin-engine": ["devin-engine@file:../devin-engine", { "dependencies": { "devin-core": "file:../devin-core" }, "devDependencies": { "@types/bun": "^1.4.4", "@types/node": "^26.6.7", "typescript": "^7.0.2" }, "hasInstallScript": true }],
+    "devin-engine": ["devin-engine@0.0.3", "", { "dependencies": { "devin-core": "0.0.3" } }, "sha512-WvXK5hd/IDRRRx9I6S0WeNuH3/JnX7l/SPMgvqmgXubI8+Y0PmrQ+IGpuim6r5w7c3WqGc/1+jIXtNNXVFHGtg=="],
 
     "typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
 
     "undici-types": ["undici-types@8.9.0", "", {}, "sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg=="],
-
-    "devin-engine/devin-core": ["devin-core@file:../devin-core", { "devDependencies": { "@types/bun": "^1.4.4", "@types/node": "^26.6.7", "typescript": "^7.0.2" }, "hasInstallScript": true }],
   }
 }
