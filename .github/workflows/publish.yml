@@ -1,35 +1,77 @@
-name: publish
+name: Publish
+
 on:
   push:
     tags: ["v*"]
+  release:
+    types: [published]
   workflow_dispatch:
 
-permissions:
-  id-token: write   # OIDC for npm Trusted Publishing
-  contents: read
+concurrency:
+  group: publish
+  cancel-in-progress: false
 
 jobs:
-  publish:
-    runs-on: ubuntu-latest
+  verify-tag:
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: oven-sh/setup-bun@v2
-      - run: bun install
-      - run: bun run build
+      - uses: actions/checkout@v7
+      - run: |
+          TAG="$GITHUB_REF_NAME"
+          VERSION=$(node -p "require('./package.json').version")
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "${TAG#v}" != "$VERSION" ]; then
+            echo "::error::tag $TAG does not match package.json version $VERSION"
+            exit 1
+          fi
+          echo "version $VERSION"
 
-      - name: check published
-        id: pub
+  test:
+    needs: verify-tag
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-26.04, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - run: bun install --frozen-lockfile
+      - run: bun test
+
+  publish:
+    needs: [verify-tag, test]
+    runs-on: ubuntu-26.04
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.0
+      - uses: actions/cache@v6
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            bun-${{ runner.os }}-
+      - run: bun install --frozen-lockfile
+      - run: npm install -g npm@latest
+      - run: |
+          npm run typecheck
+          npm run build
+      - name: Check if version is already published
+        id: check
         run: |
-          V=$(node -p "require('./package.json').version")
           NAME=$(node -p "require('./package.json').name")
-          if npm view "$NAME@$V" version >/dev/null 2>&1; then
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
             echo "published=true" >> "$GITHUB_OUTPUT"
-            echo "$NAME@$V already on npm — skipping publish"
           else
             echo "published=false" >> "$GITHUB_OUTPUT"
           fi
-
-      - run: npm publish --access public
-        if: steps.pub.outputs.published == 'false'
-        env:
-          NODE_AUTH_TOKEN: ""
+      - name: Publish to npm (trusted publishing)
+        if: steps.check.outputs.published != 'true'
+        run: npm publish --provenance
