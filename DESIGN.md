@@ -1,53 +1,102 @@
-# devin-proxy — design notes
+# devin-* ecosystem — shared-core architecture
 
-TypeScript OpenAI-compatible proxy over the Devin/Cascade backend. Ported
-from the Python `devin-proxy` (now `devin-proxy-py`) to run on
-`devin-core` + `devin-engine` — one pipeline implementation, three
-deliveries (this standalone server is one of them).
+Working area for the refactor. Five repos, two shared libraries, three
+products. All public, npm-public naming, no GitHub org
+(repos stay under the personal account with the `devin-*` prefix + topic
+`devin-ecosystem` to group them). `agentic-harness` is out of scope — it
+orchestrates CLIs, not the protocol.
 
-## Layers
+## Naming map (npm + GitHub, all verified free)
+
+| New name | Was | npm | Kind |
+|---|---|---|---|
+| `devin-core` | — | free | lib: transport, auth, PKCE, catalog |
+| `devin-engine` | — | free | lib: embeddable jailbreak/pipeline |
+| `devin-proxy` | = | free | product: standalone OpenAI-compat proxy |
+| `opencode-devin` | = | published | product: opencode v2 plugin |
+| `claude-devin` | = | free | product: Claude surface / proxy |
+
+`cascade-core` was taken on npm → family settled on `devin-*`.
+
+### Naming rule: `devin-*` prefix vs `*-devin` suffix
+
+The ecosystem convention (opencode-devin, pi-devin-*, dsh-*-devin, the
+official `@cognitionai/opencode-devin`) is `<host>-devin` = "a Devin
+integration for host X". We follow it:
+
+- **`devin-*` prefix** → pieces of the *stack itself*: the libraries and
+  the standalone proxy (devin-core, devin-engine, devin-proxy)
+- **`*-devin` suffix** → *integrations*: Devin bridged into an external
+  host (opencode-devin, claude-devin, a future vscode-devin...)
+
+Result: the two plugins keep their existing names — zero GitHub renames,
+zero npm deprecations. Only the two libs are new repos.
+
+## Dependency graph
 
 ```
-config.ts   env > ~/.devin-proxy/settings.toml > defaults
-            fingerprints the installed `devin` CLI version (fallback const)
-auth.ts     DEVIN_PROXY_API_KEY > credentials.toml windsurf_api_key
-            JWT via devin-core's getCachedUserJwt (10-min cache)
-catalog.ts  GetCliModelConfigs — the *other* catalog RPC, exposes
-            credits_per_run / promo windows / aliases that
-            devin-core's GetCascadeModelConfigs does not.
-            Also GetImageCaption + GetWebSearchResults.
-server.ts   node:http — no framework. SSE chat + /v1/models + /health.
-            Engine.run() drives upstream; this layer only frames deltas
-            as chat.completion.chunk.
-cli.ts      serve | login (PKCE via devin-core) | version
+devin-core  (wire·metadata·catalog·auth·pkce·chat·effort·contract.json)
+    │
+    ├──> devin-engine  (pipeline·guard·override·sanitize·prune·resolve)
+    │        │
+    │        ├──> devin-proxy    HTTP :8390/v1 + CLI + supervisor
+    │        ├──> devin-opencode in-process engine (flag: uncensored)
+    │        └──> devin-claude   in-process engine, Anthropic surface
 ```
 
-The whole compliance pipeline (guard, override injection, refusal retry,
-sanitize, prune, model resolve, tool translation) lives in
-**devin-engine** — the `Engine` class — which this package wraps in an
-HTTP listener.
+`devin-engine` is a **class, not a server** — the plugins import it
+in-process and the standalone proxy wraps it in an HTTP listener. One
+implementation of the jailbreak/guard, three deliveries.
 
-## Endpoints
+### Why two packages, not one
 
-| Route | Notes |
-| --- | --- |
-| `POST /v1/chat/completions` | `stream:true`→SSE, `false`→unary |
-| `GET /v1/models`, `/models` | allowed lanes + swe-2/-flash/-2.1 aliases; `free_until`, `credits_per_run`, `free_tier` under `ALLOW_PAID` |
-| `GET /health` | backend, override file/chars, catalog count, promo windows |
-| `POST /v1/web_search` | GetWebSearchResults -> {id,url,title,content} |
-| `POST /v1/image_caption` | GetImageCaption -> {caption} |
+Decided: keep `devin-core` and `devin-engine` as separate packages —
+not for aesthetics, because they are different *categories* of code.
+`devin-core` is a neutral protocol library ("how to talk to the Devin
+backend") that any third party can depend on; `devin-engine` is the
+compliance layer — the jailbreak. Merged into one package (even via
+subpath exports), every consumer would pull the uncensored code into
+node_modules whether imported or not. Split, the jailbreak only exists
+in trees that explicitly `npm i devin-engine`. Drift between them is
+low-risk: the surface the engine consumes (chat stream, catalog, auth)
+is stable, and `contract.json` catches upstream changes in CI.
 
-## Settings
+## Interconnection contract
 
-`DEVIN_PROXY_*` env, `~/.devin-proxy/settings.toml` `[devin_proxy]`, or
-CLI flags. See `config.ts` for the full list and defaults.
+- `devin-core/contract.json` — golden catalog fixture; every consumer's
+  test suite asserts its parser yields the same uid set. Drift → red CI.
+- Every repo's README carries an "Ecosystem" section listing the sibling
+  packages and which layer each one sits at.
+- Topic `devin-ecosystem` on every GitHub repo groups them at
+  github.com/topics/devin-ecosystem.
 
-## Publish
+## Refactor state
 
-`devin-proxy` on npm. OIDC Trusted Publishing
-(`.github/workflows/publish.yml`) — `git tag v* && git push --tags` or
-`workflow_dispatch` publishes without a token.
+- [x] decision log + naming (this file)
+- [x] devin-proxy (Python): SWE-2.1 family routed (5 effort lanes)
+- [x] devin-core: extracted `src/protocol` + `src/auth` from opencode-devin,
+      AI-SDK removed, node:http port, AI-SDK-compatible `DevinApiError` marker
+- [x] rewired opencode-devin (#19 merged, 156 tests) + claude-devin
+      (#26 merged to develop, 45 tests) to import `devin-core@^0.0.3`
+- [x] devin-engine: `devin_proxy/{pipeline,jailbreak,models}` ported to TS
+      (26 unit tests)
+- [x] devin-proxy: Python → TS over devin-engine, full parity —
+      chat/SSE/models/health/image_caption/web_search verified live
+- [x] cost/promo surfacing: `free_until`/`credits_per_run`/`free_tier` in
+      /v1/models + /health (GetCliModelConfigs fields 3/19/23)
+- [x] npm publish: devin-core@0.0.3, devin-engine@0.0.3, devin-proxy@0.1.1
+- [x] renames: devin-proxy = TS, Python → devin-proxy-py
+- [x] OIDC Trusted Publishing on all 3 packages (publish.yml workflow)
+- [x] claude-devin develop → main merged (#28); release PR #29 open
+- [x] devin-proxy-py archived (superseded notice in README)
+- [x] normal/uncensored mode toggle: EngineSettings.mode (engine 0.0.4),
+      devin-proxy `--mode`/`DEVIN_PROXY_MODE`/settings.toml (proxy 0.2.0)
 
-Sibling pieces: `devin-core` (protocol), `devin-engine` (pipeline),
-`devin-proxy-py` (the Python original this ports). The ecosystem-wide
-refactor plan lives in [`DESIGN-ecosystem.md`](./DESIGN-ecosystem.md).
+## Renames done
+
+- `opencode-devin`, `claude-devin` — unchanged (the `<host>-devin`
+  convention already names them correctly).
+- `devin-core`, `devin-engine` — created new (master branches).
+- `devin-proxy` — now the TypeScript proxy (was the Python repo).
+  Python moved to `devin-proxy-py` (reference, kept green).
+- npm: `devin-proxy` publishes the TS package.
