@@ -85,34 +85,54 @@ export function buildApp(settings: Settings, auth: Auth, engine: Engine, overrid
 
   const modelsHandler = () => {
     const data: Array<Record<string, unknown>> = []
-    if (settings.allowPaid && catalog) {
+    if (catalog?.size) {
+      // Catalog-driven exposure: one entry per family (the base uid), with
+      // the effort lanes the family carries as supported reasoning efforts —
+      // the client picks the lane with reasoning_effort instead of a model
+      // id per tier. Speed/cost modifiers (`-fast`, `-lightning`) are their
+      // own families by design, so `swe-2-1` and `swe-2-1-fast` both appear.
+      const families = new Map<string, CliModelConfig[]>()
+      for (const cfg of catalog.values()) {
+        const base = cfg.uid.replace(/-(?:none|minimal|low|medium|high|xhigh|max)(?=(-|$))/, "")
+        const key = base === cfg.uid ? cfg.uid : base
+        const fam = families.get(key)
+        if (fam) fam.push(cfg)
+        else families.set(key, [cfg])
+      }
       const allowed = new Set(settings.allowedModels)
-      for (const cfg of [...catalog.values()].sort((a, b) => a.uid.localeCompare(b.uid))) {
+      const restrict = allowed.size > 0
+      for (const [familyUid, members] of [...families.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+        if (restrict && !members.some((m) => allowed.has(m.uid) || allowed.has(familyUid))) continue
+        const cfg = members.find((m) => m.uid === familyUid) ?? members[0]!
+        const efforts = members
+          .map((m) => /-(none|minimal|low|medium|high|xhigh|max)(?=-|$)/.exec(m.uid)?.[1])
+          .filter((e): e is string => typeof e === "string")
+        const aliases = [...new Set(members.flatMap((m) => m.aliases))]
         data.push({
-          id: cfg.uid, object: "model", created: Math.floor(Date.now() / 1000),
-          name: cfg.name || cfg.uid, owned_by: "devin",
-          context_window: cfg.context || 262144, max_tokens: 16384,
+          id: familyUid,
+          object: "model",
+          created: Math.floor(Date.now() / 1000),
+          name: cfg.name || familyUid,
+          owned_by: "devin",
+          context_window: cfg.context || 262144,
+          max_tokens: 16384,
+          reasoning: REASONING_BLOCK,
+          supported_reasoning_efforts: efforts.length ? [...new Set(efforts)] : REASONING_EFFORTS,
           credits_per_run: cfg.credits || undefined,
-          free_tier: allowed.has(cfg.uid),
+          free_tier: restrict ? members.some((m) => allowed.has(m.uid)) : cfg.credits === 0,
           free_until: cfg.expiryIso() || undefined,
-          aliases: cfg.aliases.length ? cfg.aliases : undefined,
+          aliases: aliases.length ? aliases : undefined,
         })
       }
       return { object: "list", data }
     }
+    // No catalog yet: the configured allowlist + the legacy aliases keep the
+    // server usable during the prefetch window.
     for (const uid of settings.allowedModels) data.push(modelEntry(uid, catalog?.get(uid)))
     data.unshift({
       ...modelEntry(settings.clientModelId, catalog?.get(settings.defaultModel)),
       wire_model: settings.defaultModel,
     })
-    const flash = catalog?.get("swe-2-flash-high")
-    if (flash || settings.allowedModels.includes("swe-2-flash-high")) {
-      data.splice(1, 0, { ...modelEntry("swe-2-flash", flash), wire_model: "swe-2-flash-high" })
-    }
-    const s21 = catalog?.get("swe-2-1-high")
-    if (s21 || settings.allowedModels.includes("swe-2-1-high")) {
-      data.splice(2, 0, { ...modelEntry("swe-2.1", s21), wire_model: "swe-2-1-high" })
-    }
     return { object: "list", data }
   }
 
@@ -318,7 +338,27 @@ export async function serve(settings: Settings): Promise<ServeHandle> {
     .then((cat) => {
       if (cat?.size) {
         app.setCatalog(cat)
-        ;(engine as unknown as { catalog: Array<{ uid: string }> }).catalog = [...cat.values()].map((c) => ({ uid: c.uid }))
+        // Engine resolution reads modelUid/baseModelUid/effortLevel. The CLI
+        // catalog carries no effort field, so it is read back off the uid —
+        // same rule devin-core applies — and each alias becomes a virtual
+        // bare entry of its family so `swe-2` / `swe-2.1` route to the
+        // family's default lane through the catalog path.
+        const entries: Array<{ modelUid: string; baseModelUid?: string; effortLevel?: string }> = []
+        const uidRe = /-(none|minimal|low|medium|high|xhigh|max)(?=-|$)/
+        for (const c of cat.values()) {
+          const effort = uidRe.exec(c.uid)?.[1]
+          const base = effort ? c.uid.replace(uidRe, "") : undefined
+          entries.push({ modelUid: c.uid, baseModelUid: base, effortLevel: effort })
+        }
+        for (const c of cat.values()) {
+          for (const alias of c.aliases) {
+            if (!entries.some((e) => e.modelUid === alias)) {
+              const base = c.uid.replace(uidRe, "")
+              entries.push({ modelUid: alias, baseModelUid: base !== c.uid ? base : c.uid })
+            }
+          }
+        }
+        ;(engine as unknown as { catalog: Array<{ modelUid: string; baseModelUid?: string; effortLevel?: string }> }).catalog = entries
         log(`model catalog: ${cat.size} configs`)
       }
     })

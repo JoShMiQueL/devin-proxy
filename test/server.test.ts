@@ -9,9 +9,9 @@ describe("config", () => {
     const s = loadSettings()
     expect(s.port).toBe(8390)
     expect(s.backend).toBe("https://server.codeium.com")
-    expect(s.allowedModels).toContain("swe-2-1-xhigh")
-    expect(s.allowedModels).not.toContain("swe-2-medium-lightning")
-    expect(s.defaultModel).toBe("swe-2-high")
+    // Empty allowlist = the whole subscription catalog routes.
+    expect(s.allowedModels).toEqual([])
+    expect(s.defaultModel).toBe("swe-2-1")
     expect(s.clientVersion).toMatch(/\d+\.\d+\.\d+/) // resolved, not "auto"
   })
   test("env overrides", () => {

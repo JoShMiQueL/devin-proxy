@@ -107,14 +107,14 @@ const DEFAULTS: Settings = {
   keepClientSystem: false,
   maxInputTokens: 240000,
   pruneKeepTurns: 12,
-  allowedModels: [
-    "swe-2-medium", "swe-2-high", "swe-2-max",
-    "swe-2-flash-medium", "swe-2-flash-high", "swe-2-flash-max",
-    "swe-2-1-low", "swe-2-1-medium", "swe-2-1-high", "swe-2-1-xhigh", "swe-2-1-max",
-  ],
+  // Empty = everything the subscription's catalog exposes. The engine
+  // resolves model+effort against the live catalog, so the whole account —
+  // claude, gpt, gemini, grok, kimi, swe — is routable by default, same as
+  // the opencode plugin. Set ALLOWED_MODELS to a comma list to restrict.
+  allowedModels: [],
   allowPaid: false,
-  defaultModel: "swe-2-high",
-  clientModelId: "swe-2",
+  defaultModel: "swe-2-1",
+  clientModelId: "swe-2.1",
 }
 
 const env = (k: string) => process.env["DEVIN_PROXY_" + k]

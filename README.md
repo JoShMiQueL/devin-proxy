@@ -1,6 +1,6 @@
 # devin-proxy
 
-An **OpenAI-compatible local proxy** that serves the Devin/Cascade backend's SWE-2 / SWE-2.1 lanes through the [`devin-engine`](../devin-engine) guarded-retry pipeline — a drop-in `OPENAI_BASE_URL` for any client that speaks `/v1/chat/completions`.
+An **OpenAI-compatible local proxy** that serves the Devin/Cascade backend's full model catalog through the [`devin-engine`](../devin-engine) guarded-retry pipeline — a drop-in `OPENAI_BASE_URL` for any client that speaks `/v1/chat/completions`.
 
 TypeScript port of the Python `devin-proxy`. Sits on [`devin-core`](../devin-core) (wire + auth + catalog) and [`devin-engine`](../devin-engine) (guard, override, retry, sanitize, resolve).
 
@@ -49,19 +49,24 @@ Point `ANTHROPIC_BASE_URL`/`OPENAI_BASE_URL`, Cursor, aider, continue.dev, Cline
 | Route | What |
 | --- | --- |
 | `POST /v1/chat/completions` | OpenAI chat, `stream: true`→SSE, `stream:false`→unary |
-| `GET /v1/models`, `/models` | allowed lanes + `swe-2`/`swe-2-flash`/`swe-2.1` aliases; `free_until`, `credits_per_run`, `free_tier` when `--allow-paid` |
+| `GET /v1/models`, `/models` | one entry per catalog family + `supported_reasoning_efforts`, `credits_per_run`, `free_until` |
 | `GET /health` | backend, override file, catalog count, promo windows |
 
 ## Models
 
-`model` resolves by family + `reasoning_effort`:
+Resolution is **catalog-driven**: every family the subscription exposes —
+claude, gpt, gemini, grok, kimi, swe — is routable. `model` names a family
+(or a bare/per-effort uid) and `reasoning_effort` picks the lane inside it:
 
-- `swe-2` → `swe-2-{medium,high,max}` (default `high`)
-- `swe-2-flash` → `swe-2-flash-{medium,high,max}`
-- `swe-2.1` → `swe-2-1-{low,medium,high,xhigh,max}` — free promo until **2026-12-09**
-- `reasoning_effort` picks the tier inside whichever family the id selected, clamping to the nearest defined level.
+- `swe-2.1` + `reasoning_effort: "xhigh"` → `swe-2-1-xhigh`
+- `claude-opus-5-5` + `reasoning_effort: "high"` → `claude-opus-5-5-high`
+- a verbatim uid like `gpt-5-6-sol-high` passes through untouched
+- catalog aliases (`swe-2`, `swe-2.1`) resolve to the family's default lane
 
-`*-lightning` lanes are never routed — they bill fast-mode credits. `allow_paid` opens the full live catalog; every non-SWE uid bills credits.
+`/v1/models` lists one entry per family with its `supported_reasoning_efforts`,
+credit cost and promo windows. `ALLOWED_MODELS` (CSV) restricts what is served
+when set; empty means everything in the catalog. `*-lightning` lanes bill
+fast-mode credits — check `credits_per_run` before routing them.
 
 ## Settings
 
