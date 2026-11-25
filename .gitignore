@@ -1,3 +1,13 @@
 node_modules/
 dist/
 *.log
+*.tgz
+
+# local env / credentials — never commit
+.env
+.env.*
+*.local
+settings.toml
+credentials.toml
+*.pem
+*.key
