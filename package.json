@@ -43,7 +43,7 @@
   },
   "dependencies": {
     "devin-core": "^0.0.7",
-    "devin-engine": "^0.0.7"
+    "devin-engine": "0.0.11"
   },
   "devDependencies": {
     "@types/bun": "^1.4.4",
