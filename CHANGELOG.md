@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/JoShMiQueL/devin-proxy/compare/v0.2.0...v0.2.1) (2026-11-25)
+
+
+### Features
+
+* catalog-driven model exposure and resolution — every subscription family routable through the live catalog, one /v1/models entry per family with effort lanes, credits and aliases; empty allowlist means everything; legacy tier table only as prefetch fallback ([#2](https://github.com/JoShMiQueL/devin-proxy/issues/2)) ([187a6c0](https://github.com/JoShMiQueL/devin-proxy/commit/187a6c08ef6924a07c9ad5e5f0bfb47faac9bfe0))
+
 ## [0.2.0] — 2026-11-24
 
 ### Added
