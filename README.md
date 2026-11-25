@@ -70,7 +70,7 @@ fast-mode credits — check `credits_per_run` before routing them.
 
 ## Settings
 
-Env `DEVIN_PROXY_*`, `~/.devin-proxy/settings.toml` `[devin_proxy]`, or flags. Notables: `MODE` (`normal`/`uncensored`), `ALLOW_PAID`, `ALLOWED_MODELS` (CSV), `GUARD_CHARS`, `GUARD_FULL`, `MAX_RETRIES`, `EMIT_REASONING`, `MAX_INPUT_TOKENS`, `SYSTEM_FILE` (`es`/`english`/`spanish` picks a bundled override).
+Env `DEVIN_PROXY_*`, `~/.devin-proxy/settings.toml` `[devin_proxy]`, or flags. Notables: `MODE` (`normal`/`uncensored`), `ALLOW_PAID`, `ALLOWED_MODELS` (CSV), `GUARD_CHARS`, `GUARD_FULL`, `MAX_RETRIES`, `EMIT_REASONING`, `MAX_INPUT_TOKENS`, `SYSTEM_FILE` (path to a custom override file; the bundled default is English — the model answers in whatever language the user writes, and retry injections follow the conversation language automatically).
 
 ## What the engine does per request
 
