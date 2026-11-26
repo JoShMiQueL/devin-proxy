@@ -29,7 +29,7 @@ export interface InstanceOptions {
   backend?: string
 }
 
-const ROOT = process.env.DEVIN_PROXY_HOME ?? join(homedir(), ".devin-proxy")
+const ROOT = process.env.DEVIN_PROXY_HOME || join(homedir(), ".devin-proxy")
 const STATE_DIR = join(ROOT, "services")
 const LOG_DIR = join(ROOT, "logs")
 const START_TIMEOUT_MS = 90_000
