@@ -1,6 +1,6 @@
 {
   "name": "devin-proxy",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "OpenAI-compatible local proxy over the Devin/Cascade backend â€” SWE-2/SWE-2.1 lanes through the guarded-retry devin-engine",
   "type": "module",
   "bin": {
