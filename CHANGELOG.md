@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/JoShMiQueL/devin-proxy/compare/v0.2.3...v0.2.4) (2026-11-26)
+
+
+### Features
+
+* background services — service start/status/stop/restart/logs/list ([#12](https://github.com/JoShMiQueL/devin-proxy/issues/12)) ([ffc3df1](https://github.com/JoShMiQueL/devin-proxy/commit/ffc3df16284b84af7b189a6c4f8db720361381bf))
+
 ## [0.2.3](https://github.com/JoShMiQueL/devin-proxy/compare/v0.2.2...v0.2.3) (2026-11-26)
 
 
