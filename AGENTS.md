@@ -17,7 +17,7 @@ The OpenAI-compatible standalone proxy — a drop-in `OPENAI_BASE_URL` for any c
 
 ## Testing against it
 
-`node dist/cli.js serve --port 8390 --mode uncensored` with the devin credentials at `~/AppData/Roaming/devin/credentials.toml` (auto-detected). The user's opencode.json already carries a `devin-proxy` provider pointing at 127.0.0.1:8390 — `opencode run "..." --model devin-proxy/swe-2-high` is the end-to-end check.
+`node dist/cli.js service run --port 8390 --mode uncensored` (foreground) or `devin-proxy service start` (background) with the devin credentials at `~/AppData/Roaming/devin/credentials.toml` (auto-detected). The user's opencode.json already carries a `devin-proxy` provider pointing at 127.0.0.1:8390 — `opencode run "..." --model devin-proxy/swe-2-high` is the end-to-end check.
 
 ## Ecosystem
 

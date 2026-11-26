@@ -15,8 +15,8 @@ TypeScript port of the Python `devin-proxy`. Sits on [`devin-core`](../devin-cor
 Enable it any of these ways:
 
 ```bash
-devin-proxy serve --mode uncensored
-DEVIN_PROXY_MODE=uncensored devin-proxy serve
+devin-proxy service start --mode uncensored
+DEVIN_PROXY_MODE=uncensored devin-proxy service start
 # ~/.devin-proxy/settings.toml
 [devin_proxy]
 mode = "uncensored"
@@ -26,10 +26,19 @@ mode = "uncensored"
 ## Run
 
 ```bash
+devin-proxy                                  # start (or reuse) the default service on 127.0.0.1:8390
+devin-proxy service start --name work --port 8391   # another standalone instance
+devin-proxy service status|list|logs|restart|stop [--name work]
+devin-proxy service run                      # foreground, in this terminal
+```
+
+Services run detached and log to `~/.devin-proxy/logs/<name>.log`. Their state lives in `~/.devin-proxy/services/<name>.json`. Starting an instance that is already running reuses it.
+
+From a checkout:
+
+```bash
 bun install
-bun src/cli.ts serve            # 127.0.0.1:8390
-# or, after build:
-node dist/cli.js serve --port 8390
+bun src/cli.ts service run      # foreground, 127.0.0.1:8390
 ```
 
 Credentials come from `DEVIN_PROXY_API_KEY` or the Devin CLI's `credentials.toml` (`windsurf_api_key`). `devin-proxy login` runs the PKCE browser flow and writes it.
