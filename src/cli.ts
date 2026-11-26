@@ -33,7 +33,7 @@ const SERVICE_COMMANDS = new Set(["status", "stop", "restart", "logs", "list"])
 async function main(argv: string[]): Promise<number> {
   const args = argv.slice(2)
   const first = args[0]
-  const cmd = first === undefined || first.startsWith("--") ? "service" : first
+  const cmd = first === undefined || (first.startsWith("--") && first !== "--help" && first !== "--version") ? "service" : first
   const sub = cmd === "service" ? (first === "service" ? args[1] ?? "start" : "start") : cmd
   const flag = (name: string) => {
     const i = args.indexOf(`--${name}`)
