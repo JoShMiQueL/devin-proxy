@@ -6,10 +6,11 @@
  * PKCE flow).
  */
 
+import { createRequire } from "node:module"
 import { loadSettings } from "./config.js"
 import { serve } from "./server.js"
 
-const PKG_VERSION = "0.2.0"
+const { version: PKG_VERSION } = createRequire(import.meta.url)("../package.json") as { version: string }
 
 const USAGE = `devin-proxy — OpenAI-compatible proxy over the Devin backend
 
