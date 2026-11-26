@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.5](https://github.com/JoShMiQueL/devin-proxy/compare/v0.2.4...v0.2.5) (2026-11-26)
+
+
+### Bug Fixes
+
+* --help and --version print instead of starting the default service ([#14](https://github.com/JoShMiQueL/devin-proxy/issues/14)) ([4851a11](https://github.com/JoShMiQueL/devin-proxy/commit/4851a11687f2e2e6bbdc19ea394e2f36b27d1454))
+
 ## [0.2.4](https://github.com/JoShMiQueL/devin-proxy/compare/v0.2.3...v0.2.4) (2026-11-26)
 
 
