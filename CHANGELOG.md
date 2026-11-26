@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/JoShMiQueL/devin-proxy/compare/v0.2.1...v0.2.2) (2026-11-26)
+
+
+### Bug Fixes
+
+* pin devin-engine 0.0.12 so installs get the tool-call and limit fixes ([#8](https://github.com/JoShMiQueL/devin-proxy/issues/8)) ([1250740](https://github.com/JoShMiQueL/devin-proxy/commit/12507407e455d70433df5f8e7aeed44abb0d7fb9))
+
 ## [0.2.1](https://github.com/JoShMiQueL/devin-proxy/compare/v0.2.0...v0.2.1) (2026-11-25)
 
 
