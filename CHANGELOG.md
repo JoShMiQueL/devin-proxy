@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/JoShMiQueL/devin-proxy/compare/v0.2.2...v0.2.3) (2026-11-26)
+
+
+### Bug Fixes
+
+* read the CLI version from package.json instead of a hardcoded string ([#10](https://github.com/JoShMiQueL/devin-proxy/issues/10)) ([00657f6](https://github.com/JoShMiQueL/devin-proxy/commit/00657f6129bf57ff397bb19833a434f6def6ec49))
+
 ## [0.2.2](https://github.com/JoShMiQueL/devin-proxy/compare/v0.2.1...v0.2.2) (2026-11-26)
 
 
